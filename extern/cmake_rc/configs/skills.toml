@@ -1,0 +1,20 @@
+[GeneralSkills]
+defense_area_buffer = 0.25
+move_to_ball_pre_radius = 0.25
+
+[KickBallThroughTarget]
+kick_ball_through_target_preposition_angle = 0.2
+
+[PassBallToRobot]
+kick_vel_multiplier = 0.22
+kick_vel_offset = 2.788
+
+[ReceiveBall]
+receive_ball_kg = 0.04
+receive_ball_kv = 0.011
+
+[getBall]
+get_ball_robot_radius = 0.035
+
+[robot]
+robot_vel_max_theta_turn_around_ball = 0.25

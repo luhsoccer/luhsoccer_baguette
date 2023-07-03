@@ -1,0 +1,39 @@
+[drive_step]
+setp_drive_min_relaxation_factor = 0.3
+
+[feature_anti_target]
+
+[feature_cf_obstacle]
+feature_robot_obstacle_k_apf = 0.02
+feature_robot_obstacle_k_ataka = 0.1
+feature_robot_obstacle_k_cf = 0.1
+feature_robot_obstacle_k_gyro = 1.4
+
+[feature_obstacles]
+obstacle_collision_distance = 0.25
+
+[feature_target]
+feature_target_k_g = 0.1
+feature_target_k_v = 0.02
+feature_turn_around_ball_k = 2.0
+feature_turn_around_ball_k_tab = 2.0
+
+[local_planner]
+
+[robot]
+robot_acc_max_y = 4.0
+robot_brk_max_x = 70.0
+robot_brk_max_y = 70.0
+robot_vel_max_theta = 8.0
+robot_vel_max_y = 1.8
+
+[rotation]
+ball_y_vel_from_rotation = 0.0
+rotation_k_g = 0.06
+rotation_k_v = 0.01
+
+[simulation]
+simulation_max_deviation = 0.5
+
+[simulation_scoring]
+simulation_scoring_obstacle_distance_k = 500.0

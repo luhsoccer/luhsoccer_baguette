@@ -1,0 +1,38 @@
+# Ignore everything under build
+/build
+/build-python
+# Ignore vscode and clion stuff
+/.vscode/*
+/.idea/*
+/cmake-build-*
+!/.vscode
+!/.vscode/c_cpp_properties.json
+!/.vscode/extensions.json
+!/.vscode/launch.json
+!/.vscode/settings.json
+!/.vscode/tasks.json
+# ignore test results
+test_detail.xml
+# Ignore clangd cache
+.cache/
+# Python wheel stuff
+/wheelhouse
+/dist
+*.whl
+__pycache__
+luhviz.ini
+
+docs/html
+
+experiment_logs/*
+!experiment_logs
+!experiment_logs/plot_path.m
+
+#simulators
+simulator
+
+
+# runtime
+runtime
+
+.venv

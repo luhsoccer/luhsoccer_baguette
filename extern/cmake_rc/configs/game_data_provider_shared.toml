@@ -1,0 +1,10 @@
+[kalman]
+kalman_acc_scale = 1.0
+kalman_q_stddev_theta = 0.401
+kalman_q_stddev_vtheta = 0.198
+kalman_q_stddev_vx = 0.2
+kalman_q_stddev_vy = 0.2
+kalman_q_stddev_x = 0.4
+kalman_r_stddev_theta = 0.106
+kalman_r_stddev_x = 0.101
+kalman_r_stddev_y = 0.098

@@ -1,0 +1,162 @@
+syntax = "proto2";
+
+import "ssl_simulation_error.proto";
+
+package luhsoccer.proto;
+
+message Vector2f {
+    required float x = 1;
+    required float y = 2;
+}
+
+message Vector3f {
+    required float x = 1;
+    required float y = 2;
+    required float z = 3;
+}
+
+
+//command for kicking
+message KickCommand {
+
+    enum ExecuteTime { 
+        NOW = 0; 
+        WHEN_BALL_IN_DRIBBLER = 1;}
+
+    //velocity for straight kick in m/s
+    required float       kick_velocity = 1;
+    //velocity of chip kick in m/s, only considered if kick_velocity is 0
+    required float       chip_velocity = 2;
+    optional uint32      cap_voltage = 3;
+    required ExecuteTime execute_time = 4;
+}
+
+//command for positional control
+message RobotPositionControl {
+    required Vector3f desired_position = 1;
+    required Vector3f desired_velocity = 2;
+}
+
+//command for only velocity control
+message RobotVelocityControl {
+    required Vector3f desired_velocity = 1;
+}
+
+//special shit
+message SpecialModes{
+
+}
+
+//move command
+message RobotMoveCommand{
+    oneof command {
+        RobotPositionControl robot_position_control = 2;
+        RobotVelocityControl robot_velocity_control = 3;
+        SpecialModes         special_mode = 4;
+    }
+}
+
+//control message to robot, sent at 100Hz
+message RobotCommand {
+
+    enum DribblerMode {
+        OFF = 0;
+        LOW = 1;
+        HIGH = 2;
+    };
+
+    required uint32          id = 1;
+    required uint64          time_stamp = 7;
+    
+    optional RobotMoveCommand move_command = 2;
+    optional DribblerMode    dribbler_mode = 5;
+    optional KickCommand     kick_command = 6;
+}
+
+
+
+// Command from the connected client to the simulator
+message RobotControl {
+    // Control the robots
+    repeated RobotCommand robot_commands = 1;
+}
+
+//metadata from robot, only send every second or so
+message RobotTelemetry {
+
+    enum ConnectionQualitiy {NO_CONNECTION = 0; BAD = 1; GOOD = 2;}
+
+    required float              battery_voltage = 1;
+    required float              cap_voltage = 2;
+    required ConnectionQualitiy connection_qualitiy = 3;
+    required bool               light_barrier_working = 4;
+}
+
+//special feedback
+message SpecialFeedback {
+
+}
+
+//feedback from robot, sent back with 100Hz
+message RobotFeedback {
+    required uint32          id = 1;
+    required uint64          time_stamp = 2;
+    optional RobotTelemetry  telemetry = 3;
+    optional Vector3f        robot_position = 4;
+    optional Vector3f        robot_velocity = 5;
+    optional bool            robot_has_ball = 6;
+    optional SpecialFeedback special_feedback = 7;
+    optional bool            is_blue = 8;
+}
+
+message RobotControlResponse {
+    // List of errors, like using unsupported features
+    repeated SimulatorError errors = 1;
+    // Feedback of the robots
+    repeated RobotFeedback feedback = 2;
+}
+
+message RobotConfigurationCommand{
+    required uint32 id = 1;
+    required uint64 time_stamp = 43;
+    
+    optional uint32 new_id = 2;
+
+    optional float  vel_max_x = 13;
+    optional float  vel_max_y = 14;
+    optional float  vel_max_t = 15;
+
+    optional float  acc_max_x = 16;
+    optional float  acc_max_y = 17;
+    optional float  acc_max_t = 18;
+
+    optional float  brk_max_x = 19;
+    optional float  brk_max_y = 20;
+    optional float  brk_max_t = 21;
+
+    optional float  k_vel = 22;
+    optional float  k_omega = 23;
+    optional float  k_pos = 24;
+    optional float  k_theta = 25;
+
+    optional bool   avoid_defense_area = 26;
+    // optional float  defense_area_height = 27;
+    // optional float  defense_area_depth = 28;
+
+    optional bool   avoid_ball = 29;
+    optional float  avoid_ball_distance = 30;
+
+    optional bool   avoid_borders = 31;
+    // optional float  field_width = 32; // goal to goal - 9m
+    // optional float  field_height = 33; // 6m
+
+    optional uint32 max_dribbler_speed = 41;
+    optional uint32 max_cap_voltage = 42; 
+
+}
+
+message RobotConfigurationFeedback{
+    required uint32 id = 1;
+    required uint64 time_stamp = 2;
+    required bool received_configuration_command = 3;
+}

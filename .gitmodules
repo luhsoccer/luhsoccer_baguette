@@ -1,0 +1,3 @@
+[submodule "extern/luhsoccer_baguette_protobuf"]
+	path = extern/luhsoccer_baguette_protobuf
+	url = ../luhsoccer_baguette_protobuf.git

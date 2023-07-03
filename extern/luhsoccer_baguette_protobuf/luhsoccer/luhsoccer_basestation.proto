@@ -1,0 +1,157 @@
+syntax = "proto3";
+
+package luhsoccer.proto.basestation;
+
+enum TeamColor {
+    BLUE = 0;
+    YELLOW = 1;
+}
+
+// Moves the robot in the local coordinate system
+message LocalVelocitcyMovement {
+    // m / s
+    float forward = 1;
+    // m / s
+    float left = 2;
+    // rad / s
+    float counter_clockwise = 3;
+}
+
+// Moves the robot in the global coordinate system, which is in our case the camera coordinates
+message GlobalVelocitcyMovement {
+    // m / s
+    float x = 1;
+    // m / s
+    float y = 2;
+    // rad / s
+    float counter_clockwise = 3;
+}
+
+// Moves the robot in the global coordinate system, which is in our case the camera coordinates
+message GlobalPositionMovement {
+    // m
+    float x = 1;
+    // m
+    float y = 2;
+    // rad
+    float theta = 3;
+}
+
+// Tells the robot what to do with the kicker capacitor
+// Robot may ignore this, but always tries to follow the best way
+enum ChargeHint {
+    CHARGE = 0;
+    DISCHARGE = 1;
+    DONT_CARE = 2;
+}
+
+// Tells the robot what to do with the kicker
+enum KickerMode {
+    KICK = 0;
+    CHIP = 1;
+}
+
+message KickerInfo {
+    ChargeHint charge_hint = 1;
+    oneof kicking_speed {
+        // m /s, relative to the robot speed
+        float relative = 2;
+        // m / s, but independent of the robot speed
+        float absolute = 3;
+    }
+    KickerMode mode = 4;
+}
+
+enum TristateDribblerMode {
+    OFF = 0;
+    HALF = 1;
+    FULL = 2;
+}
+
+message DribblerInfo {
+    oneof dribber_mode {
+        TristateDribblerMode tristate_mode = 1;
+        float percent = 2;
+        float rpm = 3;
+    }
+}
+
+message ToBasestationPacket {
+    uint32 id = 1;
+    TeamColor team_color = 2;
+    oneof movement {
+        LocalVelocitcyMovement local_velocity = 3;
+        GlobalVelocitcyMovement global_velocity = 4;
+        GlobalPositionMovement global_position = 5;
+    }
+    KickerInfo kicker_info = 6;
+    DribblerInfo dribbler_info = 7;
+}
+
+message ToBasestationWrapper {
+    repeated ToBasestationPacket packets = 1;
+}
+
+message LocalVelocityFeedback {
+    // m / s
+    float forward = 1;
+    // m / s
+    float left = 2;
+    // rad / s
+    float counter_clockwise = 3;
+}
+
+message GlobalVelocityFeedback {
+    // m / s
+    float x = 1;
+    // m / s
+    float y = 2;
+    // rad / s
+    float counter_clockwise = 3;
+}
+
+message GlobalPositionFeedback {
+    // m
+    float x = 1;
+    // m
+    float y = 2;
+    // rad
+    float theta = 3;
+}
+
+message FirmwareVersion {
+    uint32 major = 1;
+    uint32 minor = 2;
+    uint32 patch = 3;
+}
+
+message FromBasestationPacket {
+    uint32 id = 1;
+    TeamColor team_color = 2;
+    float battery_voltage = 3;
+    float kicker_voltage = 4;
+    bool has_ball = 5;
+    uint32 error_code = 6;
+    optional float battery_current = 7;
+    optional float battery_capacity_used = 8;
+    // dB
+    sint32 rssi_robot = 9;
+    // dB
+    sint32 rssi_basestation = 10;
+    oneof velocity_feedback {
+        LocalVelocityFeedback local_velocity = 11;
+        GlobalVelocityFeedback global_velocity = 12;
+    }
+    optional GlobalPositionFeedback global_position = 13;
+    uint32 feedback_time = 14;
+    FirmwareVersion firmware_version = 15;
+    // us
+    uint32 measured_rtt = 16;
+}
+
+message FromBasestationWrapper {
+    uint32 seq_id = 1;
+    uint32 error_code = 2;
+    FirmwareVersion firmware_version = 3;
+    repeated FromBasestationPacket packets = 4;
+}

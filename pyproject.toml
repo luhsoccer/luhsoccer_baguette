@@ -1,0 +1,55 @@
+[build-system]
+requires = [
+    "scikit-build-core[rich]",
+    "pybind11",
+    "conan==1.59.0",
+    "pybind11-stubgen",
+]
+build-backend = "scikit_build_core.build"
+
+[project]
+name = "luhsoccer_baguette"
+version = "0.0.0.dev0"
+description = "Our software as a python module"
+readme = "README.md"
+authors = [
+    { name = "Sebastian Knackstedt", email = "sebastian.knackstedt@luhbots.de" },
+]
+requires-python = ">=3.10"
+dependencies = ['numpy>=1.14.5']
+
+
+[project.optional-dependencies]
+test = ["pytest"]
+
+
+[tool.scikit-build]
+cmake.minimum-version = "3.18"
+ninja.minimum-version = "1.5"
+wheel.expand-macos-universal-tags = true
+wheel.packages = ["baguette_py"]
+build-dir = "build-python"
+cmake.args = ["--fresh"]
+cmake.build-type = "RelWithDebInfo"
+
+[tool.scikit-build.cmake.define]
+BUILD_PYTHON_MODULE = true
+DISABLE_TESTS = true
+ENABLE_DEPLOY_BUILD = true
+ENABLE_RELEASE_LTO = true
+
+[tool.cibuildwheel]
+build-verbosity = 2
+
+[tool.cibuildwheel.windows]
+environment = { CMAKE_GENERATOR = "Ninja", CMAKE_BUILD_TYPE = "Release" }
+
+[tool.cibuildwheel.linux]
+before-all = "yum repolist && yum install -y libfontenc-devel libXaw-devel libXcomposite-devel libXcursor-devel libXdmcp-devel libXtst-devel libXinerama-devel libxkbfile-devel libXrandr-devel libXres-devel libXScrnSaver-devel libXvMC-devel xcb-util-wm-devel xcb-util-image-devel xcb-util-keysyms-devel xcb-util-renderutil-devel libXv-devel xcb-util-devel libuuid-devel libXdamage-devel libXxf86vm-devel"
+manylinux-x86_64-image = "manylinux_2_28"
+manylinux-pypy_x86_64-image = "manylinux_2_28"
+environment = { CMAKE_GENERATOR = "Ninja", CMAKE_BUILD_TYPE = "RelWithDebInfo" }
+
+[tool.pytest.ini_options]
+python_files = "test_*.py"
+testpaths = ["tests_python"]

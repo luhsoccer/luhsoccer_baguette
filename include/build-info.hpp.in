@@ -1,0 +1,8 @@
+#pragma once
+
+// Disabling clang-format here because these line will be processed by cmake
+// clang-format off
+constexpr unsigned int PROJECT_VERSION_MAJOR = @PROJECT_VERSION_MAJOR@;
+constexpr unsigned int PROJECT_VERSION_MINOR = @PROJECT_VERSION_MINOR@;
+constexpr unsigned int PROJECT_VERSION_PATCH = @PROJECT_VERSION_PATCH@;
+// clang-format on

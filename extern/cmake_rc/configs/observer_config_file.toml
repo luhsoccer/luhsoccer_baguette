@@ -1,0 +1,18 @@
+[ball_posession]
+
+[best_goal_point]
+
+[future_ball_pos]
+
+[goal_probability]
+
+[interceptor]
+
+[pass_defense]
+
+[pass_receiver]
+
+[strategy_type]
+strategy_type_threshhold = 0.5
+
+[threat_score]

@@ -1,0 +1,5 @@
+---
+# Disable all checks at root level so generated items and headers are ignored
+# Clang-tidy needs at least one enabled check, so we use the avoid goto check
+Checks:              cppcoreguidelines-avoid-goto
+...

@@ -1,0 +1,26 @@
+// All the stl precompiled headers
+#pragma once
+#include <mutex>
+#include <shared_mutex>
+#include <vector>
+#include <functional>
+#include <string>
+#include <map>
+#include <set>
+#include <unordered_map>
+#include <iostream>
+#include <array>
+#include <tuple>
+#include <chrono>
+#include <optional>
+#include <algorithm>
+#include <atomic>
+#include <initializer_list>
+#include <list>
+#include <memory>
+#include <exception>
+#include <type_traits>
+#include <functional>
+#include <thread>
+#include <queue>
+#include <filesystem>

@@ -1,0 +1,42 @@
+#!/bin/bash
+# Check if the script from the right directory
+if [ ! -f ./bootstrap ]; then
+    echo "Run this script from the root folder of the project. Everything else is not supported"
+    exit 1
+fi
+
+# Checks if pip is installed
+if ! command -v pip &> /dev/null; then
+    echo "Could not find pip. Please install pip for python3 first!"
+    exit 1
+fi
+
+# Checks if cmake is installed
+if ! command -v cmake &> /dev/null; then
+    echo "Could not find cmake. Please install cmake first!"
+    exit 1
+fi
+
+# Checks if conan is intalled, if not than it installs it via pip
+if ! command -v conan &> /dev/null; then
+    echo "Could not find conan. Installing..."
+    pip install conan==1.59.0
+    #source ~/.profile
+fi
+
+# Update the submodules
+git submodule update --init --recursive
+
+# Needed because the xorg/system requieres some system wide packages
+conan install xorg/system@ -c tools.system.package_manager:mode=install -c tools.system.package_manager:sudo_askpass=true -c tools.system.package_manager:sudo=true
+
+if [[ -z "${NO_CONFIGURATION}" ]]; then
+    # Setup for the normal user
+    # Create a build directory and change to it
+    mkdir -p build && cd build
+
+    # Install all external dependencies
+    cmake .. -G "Ninja" -DCMAKE_BUILD_TYPE=Debug
+else
+    echo "Configuration creating is disabled"
+fi

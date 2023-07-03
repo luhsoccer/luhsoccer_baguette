@@ -1,0 +1,21 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Start Baguette with Simulation",
+            "type": "shell",
+            "command": "./start_sim.sh & sleep 1 && ${command:cmake.launchTargetPath}",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+        },
+        {
+            "label": "Start for RealWorld",
+            "type": "shell",
+            "command": "export BAGUETTE_CONFIG_PREFIX_LOCAL_PLANNER_COMPONENTS=real && ${command:cmake.launchTargetPath}",
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+        }
+    ]
+}

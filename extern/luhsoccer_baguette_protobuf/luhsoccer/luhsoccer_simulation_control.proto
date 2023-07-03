@@ -1,0 +1,30 @@
+syntax = "proto2";
+
+
+import "ssl_simulation_control.proto";
+import "ssl_simulation_synchronous.proto";
+import "ssl_simulation_error.proto";
+import "ssl_simulation_config.proto";
+
+package luhsoccer.proto;
+
+
+message LuhsoccerSimulatorControl {
+    // Control the simulation
+    optional SimulatorControl control = 1;
+    // Configure the simulation
+    optional SimulatorConfig config = 2;
+    
+    //request pausing and playing of simulation
+    optional bool pause_simulation = 4;
+
+    //syncronous execute request, pause simulation before request
+    optional SimulationSyncRequest simulation_sync_request = 5;
+}
+
+message LuhsoccerSimulatorFeedback {
+    // List of errors, like using unsupported features
+    repeated SimulatorError errors = 1;
+    
+    optional SimulationSyncResponse sync_response = 2;
+}

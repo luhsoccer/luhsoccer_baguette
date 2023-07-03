@@ -1,0 +1,2 @@
+called_from_lib:radeonsi_dri.so
+called_from_lib:libdrm_amdgpu.so

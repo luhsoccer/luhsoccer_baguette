@@ -1,0 +1,253 @@
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  CONAN_USER_HOME: "$CI_PROJECT_DIR/.conan"
+  GIT_SUBMODULE_STRATEGY: recursive
+  GIT_SUBMODULE_DEPTH: 1
+  XDG_CACHE_HOME: "$CI_PROJECT_DIR/.cache/ccache"
+  CCACHE_COMPILERCHECK: "content"
+  CCACHE_BASEDIR: "$CI_PROJECT_DIR"
+  CCACHE_SLOPPINESS: "pch_defines,time_macros"
+  # CI_DEBUG_SERVICES: "true"
+  DOCKER_AUTH_CONFIG: '{
+    "auths": {
+    "registry.gitlab.com": {
+    "auth": "$DOCKER_GITLAB_TOKEN"
+    }
+    }
+    }'
+
+default:
+  #  tags:
+  #    - luhbots
+  image: luhsoccer/baguette-ci:0.0.6
+  interruptible: true
+  before_script:
+    - ccache -z -s -p
+  after_script:
+    - ccache --show-stats
+  cache:
+    paths:
+      - .cache/pip
+      - .cache/ccache
+      - .conan
+
+stages:
+  - build
+  - test
+  - lint
+  - deploy
+
+build:linux:
+  stage: build
+  needs: []
+  cache:
+    key: linux_build
+    paths:
+      - .cache/pip
+      - .cache/ccache
+      - .conan
+  script:
+    - pip install conan==1.59.0 ninja
+    - mkdir build
+    - cmake -S . -B build -G "Ninja" -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_BUILD_TYPE=Release -DDISABLE_TESTS=true
+    - ninja -C build
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - build/modules/python_bindings/_baguette_py.*
+
+build-doxygen:linux:
+  stage: build
+  needs: []
+  cache: []
+  script:
+    - cd docs
+    - doxygen
+    - ./quick-fix.sh
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - docs/html
+  only:
+    - main
+
+.build-python:windows:
+  stage: build
+  needs: []
+  before_script:
+    - ""
+  after_script:
+    - ""
+  tags:
+    - windows
+  cache:
+    key: windows
+    paths:
+      - .conan
+  variables:
+    CONAN_USE_ALWAYS_SHORT_PATHS: "True"
+    CONAN_USER_HOME: "C:/conan-long"
+    CONAN_USER_HOME_SHORT: "C:/conan-short"
+    CIBW_BUILD: "*-win_amd64"
+    CIBW_SKIP: "pp*"
+  script:
+    - '& "C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\Common7\Tools\Launch-VsDevShell.ps1"'
+    - cl.exe
+    - cmd.exe /c "call `"C:\Program Files (x86)\Microsoft Visual Studio\2019\Community\VC\Auxiliary\Build\vcvarsall.bat`" amd64 && set > %temp%\vcvars.txt";
+    - >-
+      Get-Content "$env:temp\vcvars.txt" | Foreach-Object {
+        if ($_ -match "^([A-Za-z0-9_()]*)=(.*)$") {
+          Set-Content "env:\$($matches[1])" $matches[2];
+        }
+      }
+    - cl.exe
+    - pip install conan==1.59.0 ninja
+    - pip install cibuildwheel==2.12.0
+    - cd ../../builds/luhbots/luhsoccer_baguette
+    - pwd
+    - (Get-Content pyproject.toml) | ForEach-Object { $_ -replace "0.0.0.dev0", "0.0.1.dev$CI_PIPELINE_IID" } | Set-Content pyproject.toml
+    - cibuildwheel --output-dir wheelhouse --platform windows
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - wheelhouse/
+  only:
+    - main
+
+build-python:linux:
+  stage: build
+  image: python:3.8
+  needs: []
+  cache:
+    key: python_linux
+    paths:
+      - .cache/pip
+  services:
+    - name: docker:dind
+      entrypoint: ["env", "-u", "DOCKER_HOST"]
+      command: ["dockerd-entrypoint.sh"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375/
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: ""
+    CIBW_BUILD: "*-manylinux_x86_64"
+    CIBW_SKIP: "pp*"
+  before_script:
+    - ""
+  after_script:
+    - ""
+  script:
+    - curl -sSL https://get.docker.com/ | sh
+    - python -m pip install cibuildwheel==2.12.0
+    - sed -i s/0.0.0.dev0/0.0.1.dev$CI_PIPELINE_IID/g pyproject.toml
+    - cibuildwheel --output-dir wheelhouse
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - wheelhouse/
+  only:
+    - main
+
+lint-cppcheck:linux:
+  stage: lint
+  needs: []
+  cache: []
+  script:
+    - pip install cppcheck-codequality
+    - cppcheck -j 8 --enable=all $(find modules -regex '.*\(include\|src\)$' | awk '$0="-I "$0') --xml --inconclusive --inline-suppr modules 2> cppcheck_out.xml
+    - cppcheck-codequality --input-file cppcheck_out.xml --output-file cppcheck.json
+  artifacts:
+    expire_in: 1 week
+    when: always
+    reports:
+      codequality: cppcheck.json
+
+test:linux:
+  stage: test
+  needs: []
+  cache:
+    key: linux_test
+    paths:
+      - .cache/pip
+      - .cache/ccache
+      - .conan
+  script:
+    - pip install conan==1.59.0 ninja
+    - mkdir -p build
+    - cmake -S . -B build -G "Ninja" -DCMAKE_BUILD_TYPE=Debug -DENABLE_TEST_COVERAGE=true -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
+    - ninja -C build test_coverage
+  coverage: /^\s*lines:\s*\d+.\d+\%/
+  artifacts:
+    expire_in: 1 week
+    when: always
+    paths:
+      - build/html
+    reports:
+      junit: build/test_detail.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: build/test_coverage.xml
+
+test-python:linux:
+  stage: test
+  needs: ["build:linux"]
+  cache:
+    key: python_linux
+    paths:
+      - .cache/pip
+  services:
+    - name: registry.gitlab.com/luhbots/luhsoccer_baguette_er_sim:0.1.6
+      alias: localhost
+      command:
+        ["-g", "2020B", "--realism", "RC2021", "--feedback", "local-velocity"]
+  script:
+    - python3 -m pip install pybind11-stubgen numpy pytest
+    - ./run_python_tests.sh
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - stubs/_baguette_py.pyi
+    reports:
+      junit: test_report.xml
+
+deploy-wheels:linux:
+  stage: deploy
+  cache: []
+  #needs: ["build-python:windows", "build-python:linux", "test-python:linux"]
+  needs: ["build-python:linux", "test-python:linux"]
+  script:
+    - apk add curl
+    - python3 -m pip install wheel --upgrade
+    - ./patch_wheels.sh
+    - python3 -m pip install twine
+    - sleep 15
+    - ./upload_wheels.sh
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - wheelhouse/
+  only:
+    - main
+
+pages:
+  stage: deploy
+  cache: []
+  needs: ["test:linux", "build-doxygen:linux"]
+  script:
+    - mkdir public
+    - mv build/html/* public/
+    - mv docs/html/* public/
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 day
+  only:
+    - main
+
+workflow:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
+    - if: $CI_COMMIT_BRANCH

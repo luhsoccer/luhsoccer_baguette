@@ -1,0 +1,5 @@
+---
+# Disable clang-tidy for everything in the test folder
+# Clang-tidy needs at least one enabled check, so we use the avoid goto check
+Checks:              cppcoreguidelines-avoid-goto
+...

@@ -1,0 +1,4 @@
+# World Model {#transform_world_model}
+The `transform` tool implements several classes to model the real world state (or alternatives to the current world state). The main class is the `WorldModel`-class. In our Software one main `WorldModel`-Object exists that represents the state of the real world. It can only be changed (feed with data) from the ``GameDataProvider``, as this Module is the owner of the main ``WorldModel``. Other modules only get a `const` reference and thus only read data from the main model. However, they may copy the main `WorldModel` to simulate scenarios.
+
+> If you do not develop the ``transform``-tool nor want to push new data to a `WorldModel`, you should not access the `WorldModel` directly. Instead you should use the [Position Class](position.md)-Object and pass the `WorldModel` as reference when needed.

@@ -1,0 +1,166 @@
+syntax = "proto2";
+
+package luhsoccer.proto;
+
+message Vec3 {
+    required float x = 1;
+    required float y = 2;
+    required float z = 3;
+}
+message Color {
+    // todo 0-255 or 0-1?
+    required uint32 r = 1;
+    required uint32 g = 2;
+    required uint32 b = 3;
+    required uint32 a = 4;
+}
+message SizeVec2 {
+    required float width = 1;
+    required float height = 2;
+}
+message Point {
+    // todo 3d or 2d?
+    required float x = 1;
+    required float y = 2;
+    optional float z = 3;
+}
+message Quat {
+    required float x = 1;
+    required float y = 2;
+    required float z = 3;
+    required float w = 4;
+}
+
+message Chunk {
+    required int32 id = 1;
+    required float first_timestamp = 2;
+    required float last_timestamp = 3;
+    repeated Timepoint timepoints = 4;
+}
+
+message Timepoint {
+    required int32 chunk_id = 1;
+    required double timestamp = 2;
+    repeated Marker markers = 3;
+    repeated Marker2D markers2d = 4;
+}
+
+message Marker {
+    enum MType {
+        GOAL_BORDERS = 0;
+        ROBOT = 1;
+        BALL = 2;
+        FRAME = 3;
+        CONE = 4;
+        CUBE = 5;
+        CYLINDER = 6;
+        SPHERE = 7;
+        TORUS = 8;
+        ARROW = 9;
+        SUZANNE = 10;
+        TEXT = 11;
+        LINE = 12;
+        RECT = 13;
+        ARROW_2D = 14;
+        CIRCLE = 15;
+        LINE_STRIP = 16;
+        CUSTOM_STRIP = 17;
+        HEATMAP = 18;
+        CIRCULAR_HEATMAP = 19;
+        INFO = 20;
+        ROBOT_INFO = 21;
+        LAST_MARKER_TYPE = 22;
+    }
+
+    enum Type3D {
+        GOAL_BORDERS3D = 0;
+        ROBOT3D = 1;
+        BALL3D = 2;
+        FRAME3D = 3;
+        CONE3D = 4;
+        CUBE3D = 5;
+        CYLINDER3D = 6;
+        SPHERE3D = 7;
+        TORUS3D = 8;
+        ARROW3D = 9;
+        SUZANNE3D = 10;
+        TEXT3D = 11;
+        LAST_MARKER_TYPE3D = 12;
+    }
+
+    required MType type = 1;
+    required Type3D type_3d = 2;
+    required Vec3 position = 3;
+    required Quat rotation = 4;
+    required Vec3 scale = 5;
+    required Color color = 6;
+    required string text = 7;
+    required string ns = 8;
+    required int32 id = 9;
+    required bool limited_lifetime = 10;
+}
+
+message Marker2D {
+    enum MType {
+        GOAL_BORDERS = 0;
+        ROBOT = 1;
+        BALL = 2;
+        FRAME = 3;
+        CONE = 4;
+        CUBE = 5;
+        CYLINDER = 6;
+        SPHERE = 7;
+        TORUS = 8;
+        ARROW = 9;
+        SUZANNE = 10;
+        TEXT = 11;
+        LINE = 12;
+        RECT = 13;
+        ARROW_2D = 14;
+        CIRCLE = 15;
+        LINE_STRIP = 16;
+        CUSTOM_STRIP = 17;
+        HEATMAP = 18;
+        CIRCULAR_HEATMAP = 19;
+        INFO = 20;
+        ROBOT_INFO = 21;
+        LAST_MARKER_TYPE = 22;
+    }
+
+    enum Type2D {
+        LINE2D = 0;
+        RECT2D = 1;
+        ARROW2D = 2;
+        CIRCLE2D = 3;
+        LINE_STRIP2D = 4;
+        CUSTOM_STRIP2D = 5;
+        HEATMAP2D = 6;
+        CIRCULAR_HEATMAP2D = 7;
+        LAST_MARKER_TYPE2D = 8;
+    }
+
+    required float thickness = 1;
+    required Color color = 2;
+    required bool filled = 3;
+    required Point position = 4;
+    required Quat rotation = 5;
+    required Vec3 scale = 6;
+    repeated Vec3 points = 7;
+    repeated Vec3 vertices = 8;
+    repeated Color colors = 9;
+    repeated Color input_colors = 10;
+    required bool closed_path = 11;
+    required int32 id = 12;
+    required string ns = 13;
+    required bool limited_lifetime = 14;
+    required int32 resolution = 15;
+    required float radius = 16;
+    required SizeVec2 size = 17;
+    required Vec3 p1 = 18;
+    required Vec3 p2 = 19;
+    required Type2D strip_type = 20;
+    repeated Quat rotations_y = 21;
+    required SizeVec2 heatmap_size = 22;
+    required MType type = 23;
+    required Type2D type_2d = 24;
+}

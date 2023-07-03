@@ -1,0 +1,24 @@
+strParam = 'string val'
+strParam2 = 'default string value'
+
+[another_group]
+pi_key = 3.1415000000000002
+
+[luhviz_settings]
+var02 = 10
+var03 = 10
+var1 = 5
+var10 = 'dann bekommt man jede woche eine kostenlose Luh(t)-box XD'
+var11 = 'dann bekommt man jede woche eine kostenlose Luh(t)-box XD'
+var2 = 10
+var3 = 0.12345
+var4 = 5.1234000000000002
+var5 = 'luhviz ist toll'
+var6 = 'bald kommen die ball-skins'
+var7 = 'dann bekommt man jede woche eine kostenlose Luh(t)-box XD'
+var8 = 'dann bekommt man jede woche eine kostenlose Luh(t)-box XD'
+var9 = 'dann bekommt man jede woche eine kostenlose Luh(t)-box XD'
+
+[var_group]
+key_for_int_var = 3
+toml_key = false

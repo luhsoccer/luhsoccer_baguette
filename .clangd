@@ -1,0 +1,6 @@
+Diagnostics:
+  ClangTidy:
+    Remove:   
+      [
+        bugprone-unchecked-optional-access
+      ]
