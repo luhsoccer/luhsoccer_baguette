@@ -1,5 +1,4 @@
 #include "skill_wizard/include/skill_wizard.hpp"
-#include <imgui_internal.h>
 
 namespace luhsoccer::luhviz {
 

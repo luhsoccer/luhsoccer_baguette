@@ -2,7 +2,7 @@
 
 #include <memory>
 #include <string>
-#include "module.hpp"
+#include "core/module.hpp"
 
 namespace luhsoccer::marker {
 class MarkerService;
@@ -20,12 +20,12 @@ namespace luhsoccer::game_data_provider {
 class GameDataProvider;
 }
 
-namespace luhsoccer::local_planner {
-class LocalPlannerModule;
+namespace luhsoccer::robot_control {
+class RobotControlModule;
 }
 
 namespace luhsoccer::skills {
-class BodSkillBook;
+class SkillLibrary;
 }
 
 namespace luhsoccer::robot_interface {
@@ -34,6 +34,10 @@ class RobotInterface;
 
 namespace luhsoccer::scenario {
 class ScenarioExecutor;
+}
+
+namespace luhsoccer::software_manager {
+class SoftwareManager;
 }
 
 namespace luhsoccer::luhviz {
@@ -46,9 +50,9 @@ class LuhvizMain : public BaguetteModule {
     LuhvizMain& operator=(LuhvizMain&&) = delete;
     LuhvizMain& operator=(LuhvizMain&) = delete;
 
-    LuhvizMain(marker::MarkerService& ms, ssl_interface::SSLInterface& ssl,
+    LuhvizMain(software_manager::SoftwareManager& sm, marker::MarkerService& ms, ssl_interface::SSLInterface& ssl,
                simulation_interface::SimulationInterface& sim, game_data_provider::GameDataProvider& gdp,
-               local_planner::LocalPlannerModule& local_planner, skills::BodSkillBook& skill_book,
+               robot_control::RobotControlModule& robot_control, skills::SkillLibrary& skill_lib,
                robot_interface::RobotInterface& robot_interface, scenario::ScenarioExecutor& scenario_executor);
 
     void setup() override;

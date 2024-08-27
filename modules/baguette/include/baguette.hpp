@@ -3,23 +3,27 @@
 #include <memory>
 #include <any>
 #include <thread>
-#include "module.hpp"
+#include <list>
+
+#include "core/module.hpp"
 
 #include "simulation_interface/simulation_interface.hpp"
 #include "robot_interface/robot_interface.hpp"
+#include "skill_books/skill_library.hpp"
 #include "ssl_interface/ssl_interface.hpp"
 #include "game_data_provider/game_data_provider.hpp"
 #include "marker_service/marker_service.hpp"
 #include "luhviz/luhviz.hpp"
 #include "config/config_store.hpp"
 #include "config_provider/config_store_main.hpp"
-#include "local_planner/local_planner_module.hpp"
-#include "module.hpp"
-#include "skill_books/bod_skill_book.hpp"
+#include "core/module.hpp"
 #include "skill_books/skill_tester.hpp"
 #include "scenario/scenario_executor.hpp"
-#include "role_manager/role_manager.hpp"
 #include "task_manager/task_manager.hpp"
+#include "event_system/event_system.hpp"
+#include "software_manager/software_manager.hpp"
+#include "vision_processor/vision_processor.hpp"
+#include "robot_control/robot_control_module.hpp"
 
 // #define ENABLE_STATIC_SKILL_TESTER
 
@@ -29,9 +33,9 @@ class TheBaguette {
    public:
     TheBaguette() { TheBaguette::instances.push_back(this); }
     ~TheBaguette() {
+        logger.info("Destroying baguette instance");
         if (!this->exited) {
-            LOG_ERROR(logger,
-                      "Destroying baguette instance which has not stopped yet. This can lead to dangerous errors.");
+            logger.error("Destroying baguette instance which has not stopped yet. This can lead to dangerous errors.");
         }
         auto it = std::find(TheBaguette::instances.begin(), TheBaguette::instances.end(), this);
         if (it != TheBaguette::instances.end()) {
@@ -78,6 +82,7 @@ class TheBaguette {
     std::atomic_bool exited{true};
     std::atomic_bool stopping{false};
     std::atomic_bool standalone{true};
+    event_system::EventSystem event_system;
 
     // this is necessary here, since it's the only way to access the instances from the signal handler
     // NOLINTNEXTLINE(cppcoreguidelines-avoid-non-const-global-variables)
@@ -102,38 +107,42 @@ class TheBaguette {
 
    public:
     // Heap allocated modules. Here is the place to add new modules to the application
+    std::unique_ptr<software_manager::SoftwareManager> software_manager =
+        addModule<software_manager::SoftwareManager>();
+    std::unique_ptr<marker::MarkerService> marker_service = addModule<marker::MarkerService>();
     std::unique_ptr<simulation_interface::SimulationInterface> simulation_interface =
-        addModule<simulation_interface::SimulationInterface>();
+        addModule<simulation_interface::SimulationInterface>(event_system);
     std::unique_ptr<ssl_interface::SSLInterface> ssl_interface =
-        addModule<ssl_interface::SSLInterface>(*simulation_interface);
+        addModule<ssl_interface::SSLInterface>(*simulation_interface, event_system, *marker_service);
     std::unique_ptr<robot_interface::RobotInterface> robot_interface =
         addModule<robot_interface::RobotInterface>(*simulation_interface);
-    std::unique_ptr<marker::MarkerService> marker_service = addModule<marker::MarkerService>();
     std::unique_ptr<game_data_provider::GameDataProvider> game_data_provider =
-        addModule<game_data_provider::GameDataProvider>(*ssl_interface, *robot_interface, *marker_service);
-    std::unique_ptr<role_manager::RoleManager> role_manager =
-        addModule<role_manager::RoleManager>(*game_data_provider, *marker_service);
+        addModule<game_data_provider::GameDataProvider>(*marker_service, event_system);
+    std::unique_ptr<vision_processor::VisionProcessor> vision_processor =
+        addModule<vision_processor::VisionProcessor>();
 
-    skills::BodSkillBook skill_book{config_provider::ConfigProvider::getConfigStore()};
-    std::unique_ptr<local_planner::LocalPlannerModule> local_planner = addModule<local_planner::LocalPlannerModule>(
-        game_data_provider->getWorldModel(), *robot_interface, *marker_service);
+    skills::SkillLibrary skill_lib{};
+
+    std::unique_ptr<robot_control::RobotControlModule> robot_control_module =
+        addModule<robot_control::RobotControlModule>(game_data_provider->getWorldModel(), *robot_interface,
+                                                     *marker_service, event_system);
 
     std::unique_ptr<task_manager::TaskManager> task_manager =
-        addModule<task_manager::TaskManager>(*role_manager, *game_data_provider, skill_book, *local_planner);
+        addModule<task_manager::TaskManager>(*game_data_provider, skill_lib, *robot_control_module);
 
 #ifdef ENABLE_STATIC_SKILL_TESTER
     std::unique_ptr<skills::SkillTester> skill_tester =
-        addModule<skills::SkillTester>(skill_book, *local_planner, game_data_provider->getWorldModel());
+        addModule<skills::SkillTester>(skill_lib, *local_planner, game_data_provider->getWorldModel());
 #endif
 
     std::unique_ptr<scenario::ScenarioExecutor> scenario_executer =
         addModule<scenario::ScenarioExecutor>(game_data_provider->getWorldModel(), *simulation_interface,
-                                              *local_planner, *marker_service, skill_book, *robot_interface);
+                                              *robot_control_module, *marker_service, skill_lib, *robot_interface);
 
 #ifndef DISABLE_LUHVIZ  // Disable luhviz when compile defintion is set
-    std::unique_ptr<luhviz::LuhvizMain> luhviz =
-        addLuhvizModule<luhviz::LuhvizMain>(*marker_service, *ssl_interface, *simulation_interface, *game_data_provider,
-                                            *local_planner, skill_book, *robot_interface, *scenario_executer);
+    std::unique_ptr<luhviz::LuhvizMain> luhviz = addLuhvizModule<luhviz::LuhvizMain>(
+        *software_manager, *marker_service, *ssl_interface, *simulation_interface, *game_data_provider,
+        *robot_control_module, skill_lib, *robot_interface, *scenario_executer);
 #endif
 };
 

@@ -13,10 +13,10 @@ namespace luhsoccer::observer::calculation {
  *
  * @param ally_handle A RobotHandle to an ally
  * @param time The timepoint of the data which should be considered
- * @return std::optional<double> An Optional of the goal probability
+ * @return double the goal probability
  */
-std::optional<double> calculateGoalProbability(const transform::RobotHandle& ally_handle,
-                                               const time::TimePoint time = time::TimePoint(0));
+double calculateGoalProbability(const transform::RobotHandle& ally_handle,
+                                const time::TimePoint time = time::TimePoint(0));
 
 /**
  * @brief Used to calculate the BestPassReceiver for a given ally robot-handle
@@ -37,12 +37,11 @@ std::optional<AllyRobot::BestPassReceiver> calculateBestPassReceiver(
  * @param receiving_robot
  * @param world_model_ptr
  * @param time
- * @return std::optional<double>
+ * @return double
  */
-std::optional<double> calculatePassProbability(const transform::RobotHandle& passing_robot,
-                                               const RobotIdentifier& receiving_robot,
-                                               const std::shared_ptr<const transform::WorldModel>& world_model_ptr,
-                                               const time::TimePoint time = time::TimePoint(0));
+double calculatePassProbability(const transform::RobotHandle& passing_robot, const RobotIdentifier& receiving_robot,
+                                const std::shared_ptr<const transform::WorldModel>& world_model_ptr,
+                                const time::TimePoint time = time::TimePoint(0));
 
 /**
  * @brief Used to calculate the current BallHolder and the movement permisseveness
@@ -63,9 +62,9 @@ std::optional<BallHolder> calculateBallPosession(const game_data_provider::GameD
  * @brief Used to calculate the Threat score of a given enemy Robot
  *
  * @param enemy_handle A RobotHandle to a Enemy Robot
- * @return std::optional<double> An optional of the threat score of the given enemy
+ * @return double the threat score of the given enemy
  */
-std::optional<double> calculateThreatLevel(const transform::RobotHandle& enemy_handle);
+double calculateThreatLevel(const transform::RobotHandle& enemy_handle);
 
 /**
  * @brief Evaluate whether the robot 'passer' has a clear pass line to the 'receiver'
@@ -133,6 +132,15 @@ std ::optional<std::pair<Eigen::Vector2d, bool>> calculateShootPoint(const trans
                                                                      const time::TimePoint time = time::TimePoint(0));
 
 /**
+ * @brief calculates the interception score
+ *
+ * @param handle the robot hande
+ * @param time the point in time
+ * @return double
+ */
+double calculateInterceptionScore(const transform::RobotHandle& handle, const time::TimePoint time);
+
+/**
  * @brief Calculates whether the given robot is inside a specific angle (based on ball movement) to see if it is viable
  * for intercepting a Ball
  *
@@ -151,8 +159,8 @@ std::optional<bool> calculateInterceptionRobotIsViable(const transform::RobotHan
  * @return std::optional<transform::RobotHandle> std::nullopt if the ball doesnt move enough or if no best interceptor
  * exists
  */
-std::optional<transform::RobotHandle> calculateBestInterceptor(const transform::WorldModel& world_model,
-                                                               std::vector<RobotIdentifier> viable_interceptors = {},
-                                                               const time::TimePoint time = time::TimePoint(0));
+std::optional<transform::RobotHandle> calculateBestInterceptor(
+    const std::shared_ptr<const transform::WorldModel>& world_model,
+    std::vector<RobotIdentifier> viable_interceptors = {}, const time::TimePoint time = time::TimePoint(0));
 
 }  // namespace luhsoccer::observer::calculation

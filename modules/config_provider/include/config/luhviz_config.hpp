@@ -21,10 +21,8 @@ struct LuhvizConfig : public Config {
 
     // viewport multiple enable/disable
     BoolParam enable_multiple_windows =
-        createBoolParam("enable_multiple_windows",
-                        "Restart required. Allows multiple windows inside luhviz. Ubuntu > 22 and other platforms "
-                        "using Wayland are not supporting this.",
-                        luhviz_group, false);
+        createBoolParam("enable_multiple_windows", "Restart required. Allows floating windows. May cause some bugs.",
+                        luhviz_group, true);
 
     // render text on top option
     BoolParam render_text_on_top = createBoolParam(
@@ -38,6 +36,12 @@ struct LuhvizConfig : public Config {
     DoubleParam zero_kick_delay = createDoubleParam(
         "zero_kick_delay", "this delay defines the time until the kick-command is reset (in controller mode)",
         luhviz_group, 0.25, 0.0, 2);
+
+    IntParam game_mode_width =
+        createIntParam("game_mode_width", "Width of the window in game size", luhviz_group, 1920, 200, 3840);
+
+    IntParam game_mode_height =
+        createIntParam("game_mode_height", "Height of the window in game size", luhviz_group, 1080 * 2 - 80, 200, 2160);
 };
 
 }  // namespace luhsoccer::config_provider

@@ -1,0 +1,2 @@
+# Plotter
+To plot data in the plotter one can use the PlotterMarker. This luhviz module polls the data from all PlotterMarkers and displays it in the plotter. For this, the ImGui library ImPlot is used.

@@ -5,8 +5,54 @@
 #include <cstddef>
 #include <cstdlib>
 #include "config_provider/config_store_main.hpp"
+#include "config/game_config.hpp"
+#include "event_system/timer_events.hpp"
 
 namespace luhsoccer::simulation {
+
+ErforceSimulationConnector::ErforceSimulationConnector(event_system::EventSystem& event_system,
+                                                       VisionOutputCallback& vision_output,
+                                                       RobotOutputCallback& robot_feedback_output,
+                                                       SimulationOutputCallback& simulation_feedback_output)
+    : SimulationConnector(vision_output, robot_feedback_output, simulation_feedback_output),
+      event_system(event_system),
+      resolver(event_system.getIoContext()),
+      vision_connection(
+          config_provider::ConfigProvider::getConfigStore().simulation_interface_config.er_force_simulation_host,
+          std::to_string(
+              config_provider::ConfigProvider::getConfigStore().simulation_interface_config.er_force_vision_port),
+          event_system.getIoContext(), &ErforceSimulationConnector::handleVisionRead),
+      blue_robot_connection(
+          config_provider::ConfigProvider::getConfigStore().simulation_interface_config.er_force_simulation_host,
+          std::to_string(config_provider::ConfigProvider::getConfigStore()
+                             .simulation_interface_config.er_force_simulation_control_port_blue),
+          event_system.getIoContext(), &ErforceSimulationConnector::handleRobotRead),
+      yellow_robot_connection(
+          config_provider::ConfigProvider::getConfigStore().simulation_interface_config.er_force_simulation_host,
+          std::to_string(config_provider::ConfigProvider::getConfigStore()
+                             .simulation_interface_config.er_force_simulation_control_port_yellow),
+          event_system.getIoContext(), &ErforceSimulationConnector::handleRobotRead),
+      simulation_connection(
+          config_provider::ConfigProvider::getConfigStore().simulation_interface_config.er_force_simulation_host,
+          std::to_string(config_provider::ConfigProvider::getConfigStore()
+                             .simulation_interface_config.er_force_simulation_control_port),
+          event_system.getIoContext(), &ErforceSimulationConnector::handleSimulationRead) {
+    // Register a 1Hz timer to check if the team color has changed
+    event_system.registerEventHandler<event_system::TimerEvent1Hz>(
+        [this](event_system::EventContext<event_system::TimerEvent1Hz> /*ctx*/) {
+            asio::post(this->event_system.getIoContext(), [this]() {
+                if (config_provider::ConfigProvider::getConfigStore().game_config.is_blue &&
+                    this->current_controlling != TeamColor::BLUE) {
+                    closeRobotSocket(TeamColor::YELLOW);
+                    openRobotSocket(TeamColor::BLUE);
+                } else if (!config_provider::ConfigProvider::getConfigStore().game_config.is_blue &&
+                           this->current_controlling != TeamColor::YELLOW) {
+                    closeRobotSocket(TeamColor::BLUE);
+                    openRobotSocket(TeamColor::YELLOW);
+                }
+            });
+        });
+}
 
 std::array<std::byte, 4> ErforceSimulationConnector::lengthToBytes(uint32_t length) {
     // clang-format off
@@ -34,14 +80,14 @@ void ErforceSimulationConnector::handleSizedRead(ErforceSimulationConnector::Soc
     asio::async_read(socket.socket, asio::buffer(socket.data_buffer, length_to_read),
                      [this, &socket, length_to_read](const std::error_code& ec, std::size_t length) {
                          if (ec) {
-                             LOG_WARNING(logger, "Got error code {} with message: {}", ec.value(), ec.message());
+                             logger.warning("Got error code {} with message: {}", ec.value(), ec.message());
                              socket.connected = false;
                          } else {
                              if (length == length_to_read) {
                                  (this->*socket.callback)(socket, length_to_read);
                              } else {
-                                 LOG_WARNING(logger, "Received wrong message size. Expected {} got {}", length_to_read,
-                                             length);
+                                 logger.warning("Received wrong message size. Expected {} got {}", length_to_read,
+                                                length);
                              }
                              handleHeaderRead(socket);
                          }
@@ -52,14 +98,14 @@ void ErforceSimulationConnector::handleHeaderRead(ErforceSimulationConnector::So
     asio::async_read(socket.socket, asio::buffer(socket.header_buffer),
                      [this, &socket](const std::error_code& ec, std::size_t length) {
                          if (ec) {
-                             LOG_WARNING(logger, "Got error code {} with message: {}", ec.value(), ec.message());
+                             logger.warning("Got error code {} with message: {}", ec.value(), ec.message());
                              socket.connected = false;
                          } else {
                              if (length == HEADER_BUFFER_SIZE) {
                                  handleSizedRead(socket, this->bytesToLength(socket.header_buffer));
                              } else {
-                                 LOG_WARNING(logger, "Received wrong header size. Expected {} got {}",
-                                             HEADER_BUFFER_SIZE, length);
+                                 logger.warning("Received wrong header size. Expected {} got {}", HEADER_BUFFER_SIZE,
+                                                length);
                                  handleHeaderRead(socket);
                              }
                          }
@@ -71,8 +117,7 @@ void ErforceSimulationConnector::connectSocket(ErforceSimulationConnector::Socke
         socket.host, socket.port,
         [this, &socket](const std::error_code& ec, const asio::ip::basic_resolver_results<asio::ip::tcp>& endpoints) {
             if (ec) {
-                LOG_WARNING(logger, "Could not resolve {}:{}: {} ({})", socket.host, socket.port, ec.message(),
-                            ec.value());
+                logger.warning("Could not resolve {}:{}: {} ({})", socket.host, socket.port, ec.message(), ec.value());
             } else {
                 if (socket.connecting) {
                     return;
@@ -84,16 +129,16 @@ void ErforceSimulationConnector::connectSocket(ErforceSimulationConnector::Socke
                         socket.connecting = false;
                         socket.connected = !ec;
                         if (!ec) {
-                            LOG_DEBUG(logger, "Connected to: {}", new_endpoint);
+                            logger.debug("Connected to: {}", new_endpoint.address().to_string());
                             handleHeaderRead(socket);
                         } else {
-                            LOG_WARNING(logger, "Could not connect to {}:{}. Error: {} ({})", socket.host, socket.port,
-                                        ec.message(), ec.value());
+                            logger.debug("Could not connect to {}:{}. Error: {} ({})", socket.host, socket.port,
+                                         ec.message(), ec.value());
                             socket.reconnect_timer.expires_after(std::chrono::seconds(3));
                             socket.reconnect_timer.async_wait([this, &socket](const std::error_code& ec) {
                                 if (ec) {
-                                    LOG_WARNING(logger, "Error while trying to reconnect: {} ({})", ec.message(),
-                                                ec.value());
+                                    logger.warning("Error while trying to reconnect: {} ({})", ec.message(),
+                                                   ec.value());
                                 } else {
                                     connectSocket(socket);
                                 }
@@ -113,14 +158,12 @@ void ErforceSimulationConnector::load() {
     } else {
         this->openRobotSocket(TeamColor::YELLOW);
     }
-
-    this->context.restart();
 };
 
 void ErforceSimulationConnector::openRobotSocket(TeamColor color) {
     static std::mutex mutex{};
     std::lock_guard lock(mutex);
-    LOG_DEBUG(logger, "Opening robot socket for color: {}", color);
+    logger.debug("Opening robot socket for color: {}", color);
     if (color == TeamColor::BLUE) {
         this->connectSocket(blue_robot_connection);
     } else {
@@ -130,7 +173,7 @@ void ErforceSimulationConnector::openRobotSocket(TeamColor color) {
 }
 
 void ErforceSimulationConnector::closeRobotSocket(TeamColor color) {
-    LOG_INFO(logger, "Closing robot socket for color: {}", color);
+    logger.info("Closing robot socket for color: {}", color);
     if (color == TeamColor::BLUE) {
         if (this->blue_robot_connection.socket.is_open()) {
             this->blue_robot_connection.connected = false;
@@ -157,7 +200,7 @@ void ErforceSimulationConnector::handleRobotRead(ErforceSimulationConnector::Soc
             }
         }
     } else {
-        LOG_WARNING(logger, "Received malformed robot control response packet");
+        logger.warning("Received malformed robot control response packet");
     }
 }
 
@@ -167,7 +210,7 @@ void ErforceSimulationConnector::handleVisionRead(ErforceSimulationConnector::So
     if (wrapper.ParseFromArray(socket.data_buffer.data(), static_cast<int>(message_length))) {
         this->vision_output(wrapper);
     } else {
-        LOG_WARNING(logger, "Received malformed vision packet");
+        this->logger.warning("Received malformed vision packet");
     }
 }
 
@@ -181,7 +224,7 @@ void ErforceSimulationConnector::handleSimulationRead(ErforceSimulationConnector
             simulation_feedback_output(simulation_feedback.sync_response());
         }
     } else {
-        LOG_WARNING(logger, "Received malformed simulation feedback packet");
+        logger.warning("Received malformed simulation feedback packet");
     }
 }
 
@@ -201,7 +244,7 @@ void ErforceSimulationConnector::onRobotCommand(const RobotControl& control,
             asio::async_write(connection.socket, asio::buffer(this->robot_send_buffer, len + len_buffer.size()),
                               [this, &connection](const std::error_code& ec, std::size_t /*length*/) {
                                   if (ec) {
-                                      LOG_WARNING(logger, "Could not robot command write. Error {}", ec.message());
+                                      logger.warning("Could not robot command write. Error {}", ec.message());
                                       connection.connected = false;
                                   }
                               });
@@ -230,26 +273,18 @@ void ErforceSimulationConnector::onSimulationCommand(const LuhsoccerSimulatorCon
                           asio::buffer(this->simulation_send_buffer, len + len_buffer.size()),
                           [this](const std::error_code& ec, std::size_t length) {
                               if (ec) {
-                                  LOG_WARNING(logger, "Could not write control packet. Error {}", ec.message());
+                                  logger.warning("Could not write control packet. Error {}", ec.message());
                                   this->simulation_connection.connected = false;
                               }
                           });
     }
 }
 
-void ErforceSimulationConnector::update() {
-    if (config_provider::ConfigProvider::getConfigStore().game_config.is_blue &&
-        this->current_controlling != TeamColor::BLUE) {
-        closeRobotSocket(TeamColor::YELLOW);
-        openRobotSocket(TeamColor::BLUE);
-    } else if (!config_provider::ConfigProvider::getConfigStore().game_config.is_blue &&
-               this->current_controlling != TeamColor::YELLOW) {
-        closeRobotSocket(TeamColor::BLUE);
-        openRobotSocket(TeamColor::YELLOW);
-    }
+/*void ErforceSimulationConnector::update() {
+
 
     this->context.poll();
-}
+}*/
 
 void ErforceSimulationConnector::stop() {
 #ifdef _WIN32  // Only works on windows, @todo needs more investigation, same as in ssl interface
@@ -260,7 +295,7 @@ void ErforceSimulationConnector::stop() {
     vision_connection.socket.shutdown(asio::socket_base::shutdown_both, ec);
 
     if (ec) {
-        LOG_ERROR(logger, "Error while closing sockets: {} ({})", ec.message(), ec.value());
+        logger.error("Error while closing sockets: {} ({})", ec.message(), ec.value());
     }
 
 #endif
@@ -269,17 +304,15 @@ void ErforceSimulationConnector::stop() {
     blue_robot_connection.socket.close();
     yellow_robot_connection.socket.close();
     vision_connection.socket.close();
-
-    this->context.stop();
 };
 
 void ErforceSimulationConnector::printSimulationError(const SimulatorError& error) {
     if (error.has_message()) {
-        LOG_WARNING(logger, "Got simulation control error message : {}", error.message());
+        logger.warning("Got simulation control error message : {}", error.message());
     } else if (error.has_code()) {
-        LOG_WARNING(logger, "Got simulation control error code: {}", error.code());
+        logger.warning("Got simulation control error code: {}", error.code());
     } else {
-        LOG_WARNING(logger, "Got simulation control error");
+        logger.warning("Got simulation control error");
     }
 }
 

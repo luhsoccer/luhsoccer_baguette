@@ -2,11 +2,8 @@
 #include "imgui.h"
 #include <cstdlib>
 #include <filesystem>
-#include "imgui_backend/imgui_stdlib.h"
 #include "imgui.h"
-
-#include "imgui_backend/imgui_stdlib.h"
-#include "imgui_backend/imgui_stdlib.h"
+#include "imgui_stdlib.h"
 
 #include <cstdlib>
 #include <filesystem>
@@ -14,10 +11,9 @@
 #include <cstdlib>
 #include <filesystem>
 
-namespace luhsoccer::luhviz {
-
+namespace {
 // Takes a time point as a parameter and returns a string with the format "HH:MM:SS:mmm"
-static std::string formatTime(spdlog::log_clock::time_point t) {
+std::string formatTime(std::chrono::system_clock::time_point t) {
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(t.time_since_epoch());
 
     // ms is currently the total of milliseconds, we need to find the "pure" number of milliseconds,
@@ -35,13 +31,15 @@ static std::string formatTime(spdlog::log_clock::time_point t) {
     return ss.str();
 }
 
-static std::string getCurrentTimeAsTimestamp() {
+std::string getCurrentTimeAsTimestamp() {
     auto t = std::chrono::system_clock::now();
     return formatTime(t);
 }
+}  // namespace
 
-Debugger::Debugger(Fonts& fonts, DataProxy& proxy)
-    : proxy(proxy), queue(logger::Logger::getGuiSink()->getQueue()), fonts(fonts) {}
+namespace luhsoccer::luhviz {
+
+Debugger::Debugger(Fonts& fonts, DataProxy& proxy) : proxy(proxy), fonts(fonts) {}
 
 void Debugger::baguetteMode() {
     std::string cat = this->baguette_mode_frames[this->baguette_mode_frame];
@@ -122,35 +120,29 @@ void Debugger::addEventFromLogger(const logger::LoggerDetails& log) {
     EventType type = EventType::OTHER;
     ImVec4 color = ImVec4(1, 1, 1, 1);  // Remains white unless explicitly changed
     std::string type_as_string;
-    spdlog::level::level_enum level = log.lvl;
 
-    if (level == spdlog::level::level_enum::trace) {
+    if (log.lvl == logger::LogLevel::TRACE) {
         type = EventType::TRACE;
         type_as_string = "TRACE";
         color = ImVec4(0, 1, 0, 1);  // Green (lime)
-    } else if (level == spdlog::level::level_enum::debug) {
+    } else if (log.lvl == logger::LogLevel::DEBUG) {
         type = EventType::DEBUG;
         type_as_string = "DEBUG";
         // color = ImVec4(0.35f, 0.35f, 0.35f, 1);  // Grey
         color = grey;  // Grey
         // color = ImVec4(0.5f, 0.5f, 0.5f, 1);  // Grey
-    } else if (level == spdlog::level::level_enum::info) {
+    } else if (log.lvl == logger::LogLevel::INFO) {
         type = EventType::INFO;
         type_as_string = "INFO";
-    } else if (level == spdlog::level::level_enum::warn) {
+    } else if (log.lvl == logger::LogLevel::WARNING) {
         type = EventType::WARNING;
         type_as_string = "WARNING";
         color = ImVec4(1, 1, 0, 1);  // Yellow
-    } else if (level == spdlog::level::level_enum::err) {
+    } else if (log.lvl == logger::LogLevel::ERROR) {
         type = EventType::ERROR;
         type_as_string = "ERROR";
         color = ImVec4(1, 0, 0, 1);  // Red
-    } else if (level == spdlog::level::level_enum::critical) {
-        type = EventType::CRITICAL;
-        type_as_string = "CRITICAL";
-        color = ImVec4(1, 0, 0, 1);  // Red
-        // color = ImVec4(0.96f, 0.4f, 0, 1);  // Orange
-    } else if (level == spdlog::level::level_enum::off) {
+    } else if (log.lvl == logger::LogLevel::OFF) {
         type = EventType::OFF;
         type_as_string = "OFF";
     } else {
@@ -202,7 +194,7 @@ void Debugger::wrapText(DebuggerEvent& event) {
     // (Or if the event's contents have changed)
     // That is what the if-statement is for
     if (event.getEventWrappedTextContent() == "" ||
-        event.getEventWrappedTextConsoleWidth() != ImGui::GetWindowContentRegionWidth() ||
+        event.getEventWrappedTextConsoleWidth() != ImGui::GetContentRegionAvail().x ||
         event.getEventOriginalTextContent() != text || this->previous_monospace_setting != this->use_monospace_font) {
         std::string result = "";
         int line_count = 1;
@@ -221,7 +213,7 @@ void Debugger::wrapText(DebuggerEvent& event) {
             if (i > 0) {
                 std::string t = result + " ";
                 t += word;
-                if (ImGui::CalcTextSize(t.c_str()).x >= ImGui::GetWindowContentRegionWidth()) {
+                if (ImGui::CalcTextSize(t.c_str()).x >= ImGui::GetContentRegionAvail().x) {
                     result.append("\n" + word);
                     line_count++;
                 } else {
@@ -233,7 +225,7 @@ void Debugger::wrapText(DebuggerEvent& event) {
             i++;
         }
 
-        event.setEventWrappedText(result, text, ImGui::GetWindowContentRegionWidth(), line_count);
+        event.setEventWrappedText(result, text, ImGui::GetContentRegionAvail().x, line_count);
     }
 
     ImGui::PopFont();
@@ -375,13 +367,10 @@ void Debugger::drawConsole() {
     if (ImGui::BeginChild("ScrollingRegion", ImVec2(0, -FLT_MIN), false, ImGuiWindowFlags_HorizontalScrollbar)) {
         bool new_logs_available = false;  // Tracks whether there is a new log or not
 
-        while (!this->queue.empty()) {
+        logger::readLogMessages([&](const logger::LoggerDetails& line) {
             new_logs_available = true;
-
-            logger::LoggerDetails line;
-            queue.pop(line);
             addEventFromLogger(line);
-        }
+        });
 
         this->events_shown = 0;
         this->filtered_event_log.clear();
@@ -449,7 +438,7 @@ void Debugger::drawConsole() {
                 }
             } else {
                 ModuleFilter* module_filter = &this->module_filter_map.find(e.getEventModule())->second;
-
+                type_ok = true;
                 if (type == EventType::TRACE) {
                     if (this->show_trace) type_ok = true;
                     if (module_filter->show_trace) module_ok = true;
@@ -494,9 +483,13 @@ void Debugger::drawConsole() {
             // it means that the user either changed the filtering criteria or that there are new logs,
             // so we set new_logs_available to true so that the content will autoscroll to the bottom
             // if autoscroll is enabled as well
-            if (this->events_shown != this->previous_events_shown) new_logs_available = true;
-            this->previous_events_shown = this->events_shown;
         }
+        if (this->events_shown != this->previous_events_shown) {
+            // std::cout << this->events_shown << "," << this->previous_events_shown << std::endl;
+            new_logs_available = true;
+        }
+
+        this->previous_events_shown = this->events_shown;
 
         // this->event_heights.clear();
 
@@ -543,8 +536,6 @@ void Debugger::loadConfigs() {
     this->previous_monospace_setting = this->use_monospace_font;
     this->add_extra_spacing_between_logs = this->proxy.getConfigBool(config_name, "add_extra_spacing_between_logs");
     this->baguette_mode = this->proxy.getConfigBool(config_name, "baguette_mode");
-
-    LOG_DEBUG(logger::Logger("terst"), "baguette_mode {}", this->baguette_mode);
 
     // Load module filters for ALL modules
     this->show_trace = this->proxy.getConfigBool(config_name, "show_trace");
@@ -698,7 +689,11 @@ void Debugger::printEvents(bool new_logs_available) {
     */
 }
 
-void Debugger::drawWindow(ImGuiWindowFlags& flags) {
+void Debugger::drawWindow(ImGuiWindowFlags& flags, bool& open) {
+    if (!open) {
+        return;
+    }
+
     // Initialize draggable-window
     const ImVec2 window_size{520, 600};
     const ImVec2 window_min_size{250, 250};
@@ -708,7 +703,7 @@ void Debugger::drawWindow(ImGuiWindowFlags& flags) {
     ImGui::PushStyleVar(ImGuiStyleVar_WindowMinSize, window_min_size);
 
     ImGui::PushStyleColor(ImGuiCol_Text, this->proxy.accent_text_color);
-    ImGui::Begin(this->title.c_str(), nullptr, flags);
+    ImGui::Begin(this->title.c_str(), &open, flags);
     ImGui::PopStyleColor();
 
     // Note: As a specific feature guaranteed by the library, after calling Begin() the last
@@ -848,8 +843,8 @@ void Debugger::drawWindow(ImGuiWindowFlags& flags) {
 
             if (selected_module == "All modules") {
                 ImGui::TextColored(ImVec4(1, 1, 0, 1),
-                                   "Note: Any disabled types here will\n"
-                                   "override individual module settings!");
+                                   "Note: This settings change the values in\n"
+                                   "all modules!");
 
                 ImGui::SetCursorPosY(ImGui::GetCursorPosY() + offset);
                 ImGui::SetCursorPosX(ImGui::GetCursorPosX() + offset_big);
@@ -866,6 +861,10 @@ void Debugger::drawWindow(ImGuiWindowFlags& flags) {
                     this->show_other = true;
 
                     updateAllModulesLogTypeConfig();
+                    for (auto& [module, filter] : this->module_filter_map) {
+                        filter.enableAll();
+                        updateModuleFilter(module, &filter);
+                    }
                 }
 
                 ImGui::SameLine();
@@ -882,6 +881,10 @@ void Debugger::drawWindow(ImGuiWindowFlags& flags) {
                     this->show_other = false;
 
                     updateAllModulesLogTypeConfig();
+                    for (auto& [module, filter] : this->module_filter_map) {
+                        filter.disableAll();
+                        updateModuleFilter(module, &filter);
+                    }
                 }
 
                 ImGui::SameLine();
@@ -898,6 +901,10 @@ void Debugger::drawWindow(ImGuiWindowFlags& flags) {
                     this->show_other = !this->show_other;
 
                     updateAllModulesLogTypeConfig();
+                    for (auto& [module, filter] : this->module_filter_map) {
+                        filter.invertSelection();
+                        updateModuleFilter(module, &filter);
+                    }
                 }
 
                 // This invisible text is simply there for padding
@@ -914,10 +921,18 @@ void Debugger::drawWindow(ImGuiWindowFlags& flags) {
                 ImGui::TableSetColumnIndex(0);
                 if (ImGui::Checkbox("TRACE  ", &this->show_trace)) {
                     this->proxy.setConfigBool("show_trace", this->show_trace);
+                    for (auto& [module, filter] : this->module_filter_map) {
+                        filter.show_trace = this->show_trace;
+                        updateModuleFilter(module, &filter);
+                    }
                 }
                 ImGui::TableSetColumnIndex(1);
                 if (ImGui::Checkbox("ERROR  ", &this->show_error)) {
                     this->proxy.setConfigBool("show_error", this->show_error);
+                    for (auto& [module, filter] : this->module_filter_map) {
+                        filter.show_error = this->show_error;
+                        updateModuleFilter(module, &filter);
+                    }
                 }
 
                 ImGui::TableNextRow();
@@ -925,10 +940,18 @@ void Debugger::drawWindow(ImGuiWindowFlags& flags) {
                 ImGui::TableSetColumnIndex(0);
                 if (ImGui::Checkbox("DEBUG  ", &this->show_debug)) {
                     this->proxy.setConfigBool("show_debug", this->show_debug);
+                    for (auto& [module, filter] : this->module_filter_map) {
+                        filter.show_debug = this->show_debug;
+                        updateModuleFilter(module, &filter);
+                    }
                 }
                 ImGui::TableSetColumnIndex(1);
                 if (ImGui::Checkbox("CRITICAL  ", &this->show_critical)) {
                     this->proxy.setConfigBool("show_critical", this->show_critical);
+                    for (auto& [module, filter] : this->module_filter_map) {
+                        filter.show_critical = this->show_critical;
+                        updateModuleFilter(module, &filter);
+                    }
                 }
 
                 ImGui::TableNextRow();
@@ -936,10 +959,18 @@ void Debugger::drawWindow(ImGuiWindowFlags& flags) {
                 ImGui::TableSetColumnIndex(0);
                 if (ImGui::Checkbox("INFO  ", &this->show_info)) {
                     this->proxy.setConfigBool("show_info", this->show_info);
+                    for (auto& [module, filter] : this->module_filter_map) {
+                        filter.show_info = this->show_info;
+                        updateModuleFilter(module, &filter);
+                    }
                 }
                 ImGui::TableSetColumnIndex(1);
                 if (ImGui::Checkbox("OFF  ", &this->show_off)) {
                     this->proxy.setConfigBool("show_off", this->show_off);
+                    for (auto& [module, filter] : this->module_filter_map) {
+                        filter.show_off = this->show_off;
+                        updateModuleFilter(module, &filter);
+                    }
                 }
 
                 ImGui::TableNextRow();
@@ -947,10 +978,18 @@ void Debugger::drawWindow(ImGuiWindowFlags& flags) {
                 ImGui::TableSetColumnIndex(0);
                 if (ImGui::Checkbox("WARNING  ", &this->show_warning)) {
                     this->proxy.setConfigBool("show_warning", this->show_warning);
+                    for (auto& [module, filter] : this->module_filter_map) {
+                        filter.show_warning = this->show_warning;
+                        updateModuleFilter(module, &filter);
+                    }
                 }
                 ImGui::TableSetColumnIndex(1);
                 if (ImGui::Checkbox("OTHER  ", &this->show_other)) {
                     this->proxy.setConfigBool("show_other", this->show_other);
+                    for (auto& [module, filter] : this->module_filter_map) {
+                        filter.show_other = this->show_other;
+                        updateModuleFilter(module, &filter);
+                    }
                 }
 
                 ImGui::EndTable();
@@ -1060,7 +1099,7 @@ void Debugger::drawWindow(ImGuiWindowFlags& flags) {
         } else {
             hint_text.append(std::to_string(this->filtered_event_log.size())).append(" events");
         }
-        ImGui::InputTextWithHint("##SearchInput", hint_text.c_str(), &this->filter, ImGuiInputTextFlags_CallbackResize);
+        ImGui::InputTextWithHint("##SearchInput", hint_text.c_str(), &this->filter);
         ImGui::PopStyleVar();
         ImGui::PopStyleVar();
         if (ImGui::IsItemHovered()) {
@@ -1238,12 +1277,11 @@ void Debugger::init() {
     }
 }
 
-void Debugger::render() {
-    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoNavFocus |
-                                    ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar |
-                                    ImGuiWindowFlags_NoScrollWithMouse;
+void Debugger::render(bool& open) {
+    ImGuiWindowFlags window_flags =
+        ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
 
-    this->drawWindow(window_flags);
+    this->drawWindow(window_flags, open);
 }
 
 }  // namespace luhsoccer::luhviz

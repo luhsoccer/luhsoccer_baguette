@@ -1,7 +1,9 @@
-from tests_python.conftest import baguette, baguette_instance, ssl_interface
+import baguette_py as baguette
+import start_config
 
 
-def test_set_VisionDataSource(
+@start_config.event_based(start_config.setup_clean)
+def test_set_vision_data_source(
     baguette_instance: baguette.Baguette, ssl_interface: baguette.SSLInterface
 ) -> None:
     vision_source = baguette.VisionDataSource.Simulation

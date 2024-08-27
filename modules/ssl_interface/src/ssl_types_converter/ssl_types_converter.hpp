@@ -51,6 +51,8 @@ SSLArcType parseArcType(const std::string& name);
  */
 SSLCommandType parseCommandType(const Referee_Command& cmd);
 
+SSLStage parseStage(const Referee_Stage& stage);
+
 /**
  * @brief Maps an game event into the respective variant type
  *

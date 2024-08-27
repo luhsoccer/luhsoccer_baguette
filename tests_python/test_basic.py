@@ -1,13 +1,16 @@
-from tests_python.conftest import baguette_instance, baguette
 import time
-import pytest
+import baguette_py as baguette
+import start_config
 
 
+@start_config.event_based(start_config.setup_clean)
 def test_basic(baguette_instance: baguette.Baguette) -> None:
-    baguette_instance.start()
-
-    # Simple test to check if baguette is closing without error when using it over python
+    """
+    This tests if baguette start and stops without any errors
+    """
     time.sleep(5)
 
-    # Double start should not do anything
-    baguette_instance.start()
+
+@start_config.event_based(start_config.setup_clean)
+def test_get_instance(baguette_instance: baguette.Baguette) -> None:
+    assert baguette.Baguette.getInstance() == baguette_instance

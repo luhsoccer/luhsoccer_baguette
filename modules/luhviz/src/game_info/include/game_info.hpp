@@ -1,11 +1,8 @@
 #pragma once
 
-#include <iostream>
 #include <cstdio>
 #include <cmath>
 #include "imgui.h"
-#define IMGUI_DEFINE_MATH_OPERATORS
-#include "imgui_internal.h"
 #include "game_data_provider/game_data_provider.hpp"
 #include "inspector/include/inspector.hpp"
 #include "marker_service/marker_service.hpp"
@@ -17,12 +14,11 @@ class GameInfo {
    public:
     GameInfo(DataProxy& proxy, Fonts& fonts) : proxy(proxy), fonts(fonts){};
     void init();
-    void render();
+    void render(bool& open);
 
    private:
-    const ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoNavFocus |
-                                          ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar |
-                                          ImGuiWindowFlags_NoScrollWithMouse;
+    const ImGuiWindowFlags window_flags =
+        ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoScrollbar | ImGuiWindowFlags_NoScrollWithMouse;
 
     const std::string icon_path = "res/images/robot_icon.png";
     std::string team_name_left = "res/team_logos/luhbots.png";
@@ -34,6 +30,10 @@ class GameInfo {
     GLTexture robot_icon{};
     Fonts& fonts;
 
+    std::string current_gamestate;
+    std::string last_gamestate;
+    std::string second_last_gamestate;
+
     GLTexture ally_logo{};
     GLTexture enemy_logo{};
     GLTexture unknown_logo{};
@@ -42,7 +42,7 @@ class GameInfo {
 
     ImVec2 window_size{0, 0};
 
-    void renderGameInfo();
+    void renderGameInfo(bool& open);
     void renderStateDisplays();
     bool getTeamLogoTexture(const std::string& team_name, GLTexture& logo);
 };

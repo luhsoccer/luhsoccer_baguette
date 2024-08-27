@@ -2,7 +2,7 @@
 #include <fstream>
 #include <filesystem>
 
-#include "common_types.hpp"
+#include "core/common_types.hpp"
 
 #include "logger/logger.hpp"
 
@@ -30,8 +30,7 @@ bool saveFile(const std::string& path, const toml::table& tbl) {
         return true;
     }
 
-    logger::Logger tmp_logger("config_provider");
-    LOG_WARNING(tmp_logger, "Failed to open file '{}'!", path);
+    logger::Logger("config_provider").warning("Failed to open file '{}'!", path);
 
     return false;
 }
@@ -65,9 +64,9 @@ bool parseFile(const std::string& path, toml::table& tbl, bool cmake_rc_fs, bool
         // if we want to look into the cmake_rc filesystem and the file could not be parsed this is a warning (the main
         // config file could not be parsed). Otherwise the optional file could not be parsed. Then it is a Info
         if (cmake_rc_fs) {
-            LOG_WARNING(tmp_logger, "Failed to read / parse toml file '{}'!", path);
+            tmp_logger.warning("Failed to read / parse toml file '{}'!", path);
         } else {
-            LOG_INFO(tmp_logger, "Failed to read / parse (Optional) toml file '{}'!", path);
+            tmp_logger.info("Failed to read / parse (Optional) toml file '{}'!", path);
         }
 
         return false;
@@ -94,7 +93,7 @@ const std::string pathLookup(const std::string& filename, const std::string_view
 
     while (true) {
         if (!path.has_filename()) {
-            LOG_WARNING(logger::Logger("config_provider"), "Could not find '{}' folder!", dir_name);
+            logger::Logger("config_provider").warning("Could not find '{}' folder!", dir_name);
             break;
         }
 
@@ -103,7 +102,7 @@ const std::string pathLookup(const std::string& filename, const std::string_view
         }
 
         if (!path.has_parent_path()) {
-            LOG_WARNING(logger::Logger("config_provider"), "Could not find '{}' folder!", dir_name);
+            logger::Logger("config_provider").warning("Could not find '{}' folder!", dir_name);
             break;
         }
 

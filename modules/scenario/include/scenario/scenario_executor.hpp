@@ -2,7 +2,7 @@
 
 #include "experiment_logger/experiment_logger.hpp"
 #include "scenario/scenario.hpp"
-#include "module.hpp"
+#include "core/module.hpp"
 
 namespace luhsoccer {
 
@@ -19,8 +19,8 @@ class ScenarioExecutor : public BaguetteModule {
     ScenarioExecutor& operator=(ScenarioExecutor&&) = delete;
     ScenarioExecutor(std::shared_ptr<const transform::WorldModel> wm,
                      simulation_interface::SimulationInterface& simulation_interface,
-                     local_planner::LocalPlannerModule& local_planner_module, marker::MarkerService& ms,
-                     const skills::BodSkillBook& skill_book, const robot_interface::RobotInterface& robot_interface);
+                     robot_control::RobotControlModule& robot_control_module, marker::MarkerService& ms,
+                     const skills::SkillLibrary& skill_lib, const robot_interface::RobotInterface& robot_interface);
     constexpr std::string_view moduleName() override { return "ScenarioExecutor"; }
 
     void loop(std::atomic_bool& should_run) override;
@@ -32,11 +32,11 @@ class ScenarioExecutor : public BaguetteModule {
    private:
     void executeScenario(std::atomic_bool& should_run, Scenario& scenario);
 
-    const static Scenario& scenario;
+    // const static Scenario& scenario;
     std::shared_ptr<const transform::WorldModel> wm;
     simulation_interface::SimulationInterface& simulation_interface;
-    local_planner::LocalPlannerModule& local_planner_module;
-    const skills::BodSkillBook& skill_book;
+    robot_control::RobotControlModule& robot_control_module;
+    const skills::SkillLibrary& skill_library;
     const robot_interface::RobotInterface& robot_interface;
 
     enum class State { IDLE, SCENARIO_REQUESTED, RUNNING };

@@ -1,0 +1,64 @@
+{
+    "$schema": "https://raw.githubusercontent.com/microsoft/vcpkg-tool/main/docs/vcpkg.schema.json",
+    "dependencies": [
+        {
+            "name": "glad",
+            "features": [
+                "gl-api-45"
+            ]
+        },
+        {
+            "name": "imgui",
+            "features": [
+                "docking-experimental",
+                "glfw-binding",
+                "opengl3-binding"
+            ]
+        },
+        {
+            "name": "libbacktrace",
+            "platform": "!windows"
+        },
+        {
+            "name": "protobuf",
+            "features": [
+                "zlib"
+            ]
+        },
+        {
+            "name": "freetype",
+            "features": [
+                "zlib"
+            ]
+        },
+        {
+            "name": "boost-iostreams",
+            "default-features": false,
+            "features": [
+                "zlib"
+            ]
+        },
+        "glfw3",
+        "spdlog",
+        "eigen3",
+        "glm",
+        "stb",
+        "tinyobjloader",
+        "implot",
+        "portable-file-dialogs",
+        "tomlplusplus",
+        "boost-stacktrace",
+        "curlpp",
+        "asio",
+        "fmt",
+        "mpmcqueue",
+        "tiny-process-library",
+        "benchmark",
+        "gtest",
+        "zlib",
+        "bshoshany-thread-pool",
+        "tbb",
+        "pkgconf",
+        "magic-enum"
+    ]
+}

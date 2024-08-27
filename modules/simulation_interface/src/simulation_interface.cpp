@@ -2,14 +2,17 @@
 
 #include "simulations/test_simulation_connector.hpp"
 #include "simulations/erforce_simulation_connector.hpp"
+#include "simulations/er_sim_connector.hpp"
+
 #include "luhsoccer_simulation_control.pb.h"
+#include "vision_processor/vision_processor_events.hpp"
 
 namespace luhsoccer::simulation_interface {
 
 void SimulationInterface::switchConnector(const SimulationConnectorType type) {
     std::lock_guard lock(this->connector_mutex);
     if (type != this->active_connector) {
-        LOG_INFO(logger, "Switch from {} to {}", this->active_connector, type);
+        logger.info("Switch from {} to {}", this->active_connector, type);
         if (this->active_connector != simulation::SimulationConnectorType::NONE) {
             this->connectors[this->active_connector]->stop();
         }
@@ -20,30 +23,23 @@ void SimulationInterface::switchConnector(const SimulationConnectorType type) {
     }
 }
 
+template <typename T, typename... Args>
+void SimulationInterface::addConnector(Args&&... args) {
+    std::unique_ptr<T> simulation =
+        std::make_unique<T>(event_system, packet_sink, robot_sink, simulation_sink, std::forward<Args>(args)...);
+    logger.debug("Added simulation connector: {}", simulation->type());
+    connectors[simulation->type()] = std::move(simulation);
+}
+
 void SimulationInterface::setup() {
     addConnector<TestSimulationConnector>();
     addConnector<ErforceSimulationConnector>();
+    addConnector<ErSimConnector>();
 }
 
 SimulationConnectorType SimulationInterface::getConnector() const {
     std::lock_guard lock(this->connector_mutex);
     return this->active_connector;
-}
-
-void SimulationInterface::loop(std::atomic_bool& should_run) {
-    while (should_run) {
-        std::unique_lock lock(this->connector_mutex);
-
-        if (this->active_connector != simulation::SimulationConnectorType::NONE) {
-            auto& connector = this->connectors[this->active_connector];
-            auto& rate = connector->getRate();
-            connector->update();
-            lock.unlock();
-            rate.sleep();
-        } else {
-            std::this_thread::yield();
-        }
-    }
 }
 
 void SimulationInterface::stop() {
@@ -94,6 +90,14 @@ void SimulationInterface::teleportRobot(unsigned int which, TeamColor team, cons
     teleport->set_present(present);
 
     this->sendSimulationCommand(control);
+
+    // event
+    vision_processor::TeleportData event_data;
+    event_data.teleport_type = vision_processor::TeleportData::RobotTeleport(which, team);
+    event_data.new_pose = target;
+    event_data.new_velocity = velocity;
+    event_data.time = time::now();
+    event_system.fireEvent(vision_processor::TeleportEvent(event_data));
 }
 
 void SimulationInterface::teleportBall(const Eigen::Affine2d& target, const Eigen::Vector3d& velocity) {
@@ -106,7 +110,25 @@ void SimulationInterface::teleportBall(const Eigen::Affine2d& target, const Eige
 
     ball_teleport->set_vx(static_cast<float>(velocity.x()));
     ball_teleport->set_vy(static_cast<float>(velocity.y()));
-    ball_teleport->set_vz(0.0);
+    ball_teleport->set_vz(static_cast<float>(velocity.z()));
+
+    this->sendSimulationCommand(control);
+
+    // event
+    vision_processor::TeleportData event_data;
+    event_data.teleport_type = vision_processor::TeleportData::BallTeleport{};
+    event_data.new_pose = target;
+    event_data.new_velocity = velocity;
+    event_data.time = time::now();
+    event_system.fireEvent(vision_processor::TeleportEvent(event_data));
+}
+
+void SimulationInterface::kickBall(const Eigen::Vector3d& velocity) {
+    LuhsoccerSimulatorControl control{};
+    auto ball_kick = control.mutable_control()->mutable_teleport_ball();
+    ball_kick->set_vx(static_cast<float>(velocity.x()));
+    ball_kick->set_vy(static_cast<float>(velocity.y()));
+    ball_kick->set_vz(static_cast<float>(velocity.z()));
 
     this->sendSimulationCommand(control);
 }

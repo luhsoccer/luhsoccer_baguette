@@ -16,7 +16,36 @@ cmrc_add_resource_library(
     configs/skills.toml
     configs/game_data_provider_shared.toml
     configs/observer_config_file.toml
+    configs/robot_control.toml
+    configs/strategy.toml
 )
+
+set_target_properties(config_provider_resources PROPERTIES UNITY_BUILD FALSE)
+
+cmrc_add_resource_library(
+    simulator_resources
+
+    ALIAS software_manager::simulator
+    NAMESPACE software_manager
+
+    simulator_presets/realism/Friendly.txt
+    simulator_presets/realism/None.txt
+    simulator_presets/realism/RC2021.txt
+    simulator_presets/realism/Realistic.txt
+
+    simulator_presets/geometry/2014.txt
+    simulator_presets/geometry/2017.txt
+    simulator_presets/geometry/2018.txt
+    simulator_presets/geometry/2019.txt
+    simulator_presets/geometry/2020.txt
+    simulator_presets/geometry/2020B.txt
+    simulator_presets/geometry/2023.txt
+    simulator_presets/geometry/2023B.txt
+    simulator_presets/geometry/divC.txt
+)
+
+set_target_properties(simulator_resources PROPERTIES UNITY_BUILD FALSE)
+
 
 cmrc_add_resource_library(
     luhviz_ressources
@@ -41,6 +70,7 @@ cmrc_add_resource_library(
     res/images/cursor_icons/setdir_cursor.png
     res/images/cursor_icons/execskill_cursor.png
     res/images/cursor_icons/ballslingshot_cursor.png
+    res/images/cursor_icons/setpoint_measure_cursor.png
     res/images/status_icons/controler_connected.png
     res/images/status_icons/controler_disconnected.png
     res/images/status_icons/controler_input.png
@@ -64,12 +94,14 @@ cmrc_add_resource_library(
     res/obj/cylinder.obj
     res/obj/frame.bmp
     res/obj/frame.obj
-    res/obj/goalborders.obj
     res/obj/plane.obj
     res/obj/soccerrobot.obj
     res/obj/sphere.obj
     res/obj/suzanne.obj
     res/obj/torus.obj
+    res/obj/grid.obj
+    res/obj/goalborders_divb.obj
+    res/obj/goalborders_diva.obj
 
     res/shader/simpleTextureFragmentShader.glsl
     res/shader/simpleTextureVertexShader.glsl
@@ -90,6 +122,7 @@ cmrc_add_resource_library(
     # team logos
     res/team_logos/luhbots.png
     res/team_logos/unknown.png
+    res/team_logos/a-team.png
     res/team_logos/ais.png
     res/team_logos/cmus.png
     res/team_logos/er-force.png
@@ -100,6 +133,7 @@ cmrc_add_resource_library(
     res/team_logos/namec.png
     res/team_logos/neuislanders.png
     res/team_logos/op-amp.png
+    res/team_logos/orca-bot.png
     res/team_logos/rione.png
     res/team_logos/robocin.png
     res/team_logos/robodragons.png
@@ -115,3 +149,5 @@ cmrc_add_resource_library(
     res/team_logos/uroborus.png
     res/team_logos/zjunlict.png
 )
+
+set_target_properties(luhviz_ressources PROPERTIES UNITY_BUILD FALSE)

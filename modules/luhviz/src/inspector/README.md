@@ -1,0 +1,3 @@
+# Inspector
+
+Every markers which are published via the [MarkerService](../../../marker_service/README.md) are given an namespace to group them better and a uniqe id. These are used to build a tree like visual structure from checkboxes so that somone can check/uncheck a whole namespace of markers or individual markers. Not checked individual markers or whole unchecked namespaces are than filtered out and therefore only checked namespaces/markers are rendered afterwards. The ImGui Elements used here are TreeNode and Checkbox combined in a custom TreeItemCheckbox element.

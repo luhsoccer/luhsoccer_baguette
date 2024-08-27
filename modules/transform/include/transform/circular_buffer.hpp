@@ -14,12 +14,11 @@
 
 #include <algorithm>
 #include <atomic>
-#include <iostream>
-#include <list>
 #include <memory>
 #include <mutex>
 #include <optional>
 #include <string>
+#include <vector>
 
 namespace luhsoccer {
 
@@ -46,22 +45,13 @@ class CircularBuffer {
      * @param previous_buffer Pointer to a previous buffer
      */
     inline CircularBuffer(size_t size, std::shared_ptr<const CircularBuffer<T>> previous_buffer = nullptr)
-        : buffer(std::max(size + 1, MIN_BUFFER_SIZE)),
+        : max_size(std::max(size + 1, MIN_BUFFER_SIZE)),
+          buffer(MIN_BUFFER_SIZE),
           head(0),
           loop_counter(0),
           previous_buffer(previous_buffer),
           point_of_entry(previous_buffer ? previous_buffer->head.load() : 0),
           previous_loop_counter(previous_buffer ? previous_buffer->loop_counter.load() : 0) {}
-    /**
-     * @brief Construct a new Circular Buffer with a default value
-     *
-     * @param size Size of the Buffer
-     * @param default_value default object that is copied in every slot
-     */
-    inline CircularBuffer(size_t size, const T& default_value) : CircularBuffer(size) {
-        std::fill_n(this->buffer.begin(), this->buffer.size(), default_value);
-        this->loop_counter++;
-    }
 
     CircularBuffer(const CircularBuffer&) = delete;
     CircularBuffer& operator=(const CircularBuffer&) = delete;
@@ -86,7 +76,16 @@ class CircularBuffer {
     inline void push(const T& element) {
         const std::lock_guard<std::mutex> lock(this->write_mutex);
 
-        size_t new_head = (this->head + 1) % this->buffer.size();
+        size_t new_head = (this->head + 1) % this->max_size;
+
+        // Resize buffer capacity exponentially if needed
+        // We don't initialize the buffer with the max_size, because often the buffer are used
+        // with a max size of 10000 elements buf only ~100 elements are pushed. This would result in
+        // large memory overhead and would make it unusable for the multi-world-model application
+        if (new_head >= this->buffer.capacity()) {
+            this->buffer.resize(std::max((this->buffer.capacity() * 2) + 1, this->max_size.load()));
+        }
+
         // NOLINTNEXTLINE - index always in bound due to mod
         this->buffer[new_head] = element;
         if (new_head == 0) {
@@ -102,9 +101,12 @@ class CircularBuffer {
      * @param index index of data
      * @return T copy of object at index
      */
-    [[nodiscard]] inline const T& at(size_t index, std::optional<size_t> entry_point = std::nullopt) const {
+    [[nodiscard]] inline const T at(size_t index, std::optional<size_t> entry_point = std::nullopt) const {
         size_t head = this->head;
         if (entry_point.has_value()) head = entry_point.value();
+
+        const std::lock_guard<std::mutex> lock(this->write_mutex);
+
         if (index >= this->size()) {
             throw std::out_of_range("Size of Circular Buffer is only " + std::to_string(this->size()) +
                                     " elements, but index " + std::to_string(index) + " was requested");
@@ -114,11 +116,13 @@ class CircularBuffer {
             return this->previous_buffer->at(index - size_of_this_buffer, this->point_of_entry);
         } else {
             // NOLINTNEXTLINE - index always in bound due to mod
-            return this->buffer[(head - index + this->buffer.size()) % this->buffer.size()];
+            return this->buffer[(head - index + this->max_size) % this->max_size];
         }
     }
 
    private:
+    std::atomic<size_t> max_size{};
+
     /**
      * @brief actual data
      *
@@ -135,7 +139,7 @@ class CircularBuffer {
     /**
      * @brief mutex to write to the buffer
      */
-    std::mutex write_mutex;
+    mutable std::mutex write_mutex;
 
     [[nodiscard]] size_t size(size_t entry_point, size_t entry_loop) const {
         return this->getSizeOfThisBuffer(entry_point, entry_loop) + this->getSizeOfPreviousBuffer();
@@ -144,7 +148,7 @@ class CircularBuffer {
     [[nodiscard]] size_t getSizeOfThisBuffer(size_t entry_point, size_t entry_loop) const {
         if (this->loop_counter == entry_loop) {
             if (this->loop_counter != 0) {
-                return buffer.size() - (this->head - entry_point) - 1;
+                return this->max_size - (this->head - entry_point) - 1;
             } else {
                 return entry_point;
             }

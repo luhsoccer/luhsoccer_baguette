@@ -35,7 +35,7 @@ double lutLinear(double t, double left_x, double right_x, double left_y, double 
 namespace luhsoccer::util {
 double Lut1D::interpolate(double x) const {
     if (!loaded) {
-        LOG_WARNING(logger, "Lut1D not loaded");
+        logger.warning("Lut1D not loaded");
         return 0.0;
     }
 
@@ -53,7 +53,7 @@ void Lut1D::load(const std::string& path) {
     std::ifstream file(path, std::ios_base::in);
 
     if (!file.is_open()) {
-        LOG_WARNING(logger, "Can't open lut file: {}", path);
+        logger.warning("Can't open lut file: {}", path);
         return;
     }
 
@@ -82,7 +82,7 @@ void Lut1D::load(const std::string& path) {
 
 double Lut2D::interpolate(double x, double y) const {
     if (!loaded) {
-        LOG_WARNING(logger, "Lut2D not loaded");
+        logger.warning("Lut2D not loaded");
         return 0.0;
     }
 
@@ -115,7 +115,7 @@ void Lut2D::load(const std::string& path) {
     std::ifstream file(path, std::ios_base::in);
 
     if (!file.is_open()) {
-        LOG_WARNING(logger, "Can't open lut file: {}", path);
+        logger.warning("Can't open lut file: {}", path);
         return;
     }
 

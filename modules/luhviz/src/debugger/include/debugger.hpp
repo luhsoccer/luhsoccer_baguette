@@ -8,20 +8,19 @@
 #include "common/include/fonts.hpp"
 #include "common/include/fonts.hpp"
 
-#include <iostream>
 #include <utility>
 #include <tuple>
 #include "logger/logger.hpp"
+#include "logger/gui_callback.hpp"
 #include "include/data_proxy.hpp"
-#include "logger/gui_sink.hpp"
 
 namespace luhsoccer::luhviz {
 class Debugger {
    public:
     explicit Debugger(Fonts& fonts, DataProxy& proxy);
     void init();
-    void render();
-    void drawWindow(ImGuiWindowFlags& flags);
+    void render(bool& open);
+    void drawWindow(ImGuiWindowFlags& flags, bool& open);
     void drawConsole();
     void addEvent(const DebuggerEvent& event);
     void addEventFromLogger(const logger::LoggerDetails& log);
@@ -64,8 +63,6 @@ class Debugger {
 
     static constexpr long unsigned int MAX_LOG_SIZE = 1000;  // Stores the limit for the max number of logs stored (to
                                                              // improve performance). If set to 0, there is no limit
-
-    rigtorp::MPMCQueue<logger::LoggerDetails>& queue;  // Message channel
 
     bool autoscroll = true;         // Keeps track of whether autoscroll is enabled or disabled
     bool show_log_type = true;      // Keeps track of whether log types are enabled or disabled

@@ -1,9 +1,10 @@
 #include <string>
-#include <fmt/format.h>
+#include <fmt/chrono.h>
 #include <fstream>
 
 #include "exception_handler/exception_handler.hpp"
 #include "logger/logger.hpp"
+
 #include "utils/utils.hpp"
 
 #define BOOST_STACKTRACE_USE_BACKTRACE
@@ -21,8 +22,8 @@ namespace luhsoccer::exception_handler {
  * @param logger A Logger
  * @param stream A file stream
  */
-void log(std::string_view message, logger::Logger &logger, std::ofstream &stream) {
-    LOG_ERROR(logger, message);
+void log(std::string_view message, logger::Logger& logger, std::ofstream& stream) {
+    logger.error(message);
 
     if (stream.is_open()) {
         stream << message << "\n";
@@ -60,7 +61,7 @@ void setTerminateHandler() {
         try {
             // rethrow the uncaught exception so we can further analyze it
             std::rethrow_exception(std::current_exception());
-        } catch (const std::exception &e) {
+        } catch (const std::exception& e) {
             log(fmt::format("Exception Type: {}", typeid(e).name()), logger, file);
             log(fmt::format("Exception: {}", e.what()), logger, file);
         } catch (...) {
@@ -79,31 +80,44 @@ void setTerminateHandler() {
         if (file.is_open()) {
             file << stacktrace;
         }
-        LOG_ERROR(logger, "{}", stacktrace);
+
+        for (const auto& frame : stacktrace) {
+            std::string content{};
+            if (frame.source_line() != 0) {
+                content += frame.source_file() + ":" + std::to_string(frame.source_line());
+            } else {
+                content += "[NO FILE INFO]";
+            }
+
+            if (frame.name() != "") {
+                content += fmt::format(" {}", frame.name());
+            }
+            logger.error("{}", content);
+        }
 
         file.flush();
         file.close();
 
         // Write info text
-        LOG_ERROR(logger, "************************************************************");
-        LOG_ERROR(logger, "************************************************************");
-        LOG_ERROR(logger, "BAGUETTE CRASHED");
+        logger.error("************************************************************");
+        logger.error("************************************************************");
+        logger.error("BAGUETTE CRASHED");
         if (!file_opened) {
-            LOG_ERROR(logger, "Traceback file could not be generated!");
+            logger.error("Traceback file could not be generated!");
 
             if (file_exists) {
-                LOG_ERROR(logger, "Make sure to delete the following file:");
-                LOG_ERROR(logger, "'{}'", traceback_path.string());
+                logger.error("Make sure to delete the following file:");
+                logger.error("'{}'", traceback_path.string());
             } else {
-                LOG_ERROR(logger, "Check permissions of following directory:");
-                LOG_ERROR(logger, "{}", traceback_path.parent_path());
+                logger.error("Check permissions of following directory:");
+                logger.error("{}", traceback_path.parent_path().string());
             }
-            LOG_ERROR(logger, "Please report this incident to the Software Department");
+            logger.error("Please report this incident to the Software Department");
 
         } else {
-            LOG_ERROR(logger, "Find the traceback file at");
-            LOG_ERROR(logger, "{}", traceback_path);
-            LOG_ERROR(logger, "Please provider this file to the Software Department");
+            logger.error("Find the traceback file at");
+            logger.error("{}", traceback_path.string());
+            logger.error("Please provider this file to the Software Department");
         }
 
         std::abort();

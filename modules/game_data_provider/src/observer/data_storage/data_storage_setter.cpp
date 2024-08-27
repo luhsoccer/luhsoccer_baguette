@@ -14,7 +14,7 @@ void DataStorage::addEmptyRobot(const RobotIdentifier& handle) {
 
 void DataStorage::setBestPassReceiver(const RobotIdentifier& handle, transform::RobotHandle bpr_handle, double score) {
     if (handle.isEnemy()) {
-        LOG_DEBUG(this->logger, "Enemy handle given to best-pass-receiver");
+        this->logger.debug("Enemy handle given to best-pass-receiver");
         return;
     }
 
@@ -24,7 +24,7 @@ void DataStorage::setBestPassReceiver(const RobotIdentifier& handle, transform::
 
 void DataStorage::setGoalProbability(const RobotIdentifier& handle, double score) {
     if (handle.isEnemy()) {
-        LOG_DEBUG(this->logger, "Enemy handle given to goal-probability");
+        this->logger.debug("Enemy handle given to goal-probability");
         return;
     }
 
@@ -33,7 +33,7 @@ void DataStorage::setGoalProbability(const RobotIdentifier& handle, double score
 
 void DataStorage::setThreatLevel(const RobotIdentifier& handle, double threat_score) {
     if (handle.isAlly()) {
-        LOG_DEBUG(this->logger, "Ally handle given to threat-level");
+        this->logger.debug("Ally handle given to threat-level");
         return;
     }
 
@@ -42,7 +42,7 @@ void DataStorage::setThreatLevel(const RobotIdentifier& handle, double threat_sc
 
 void DataStorage::setPassDefended(const RobotIdentifier& handle, bool is_pass_defended) {
     if (handle.isAlly()) {
-        LOG_DEBUG(this->logger, "Ally handle given to pass-defended");
+        this->logger.debug("Ally handle given to pass-defended");
         return;
     }
 
@@ -51,7 +51,7 @@ void DataStorage::setPassDefended(const RobotIdentifier& handle, bool is_pass_de
 
 void DataStorage::setGoalDefended(const RobotIdentifier& handle, bool is_goal_defended) {
     if (handle.isAlly()) {
-        LOG_DEBUG(this->logger, "Ally handle given to goal-defended");
+        this->logger.debug("Ally handle given to goal-defended");
         return;
     }
 
@@ -60,7 +60,7 @@ void DataStorage::setGoalDefended(const RobotIdentifier& handle, bool is_goal_de
 
 void DataStorage::setDefenseAreaDefended(const RobotIdentifier& handle, bool is_defense_area_defended) {
     if (handle.isAlly()) {
-        LOG_DEBUG(this->logger, "Ally handle given to defense-area-defended");
+        this->logger.debug("Ally handle given to defense-area-defended");
         return;
     }
 
@@ -77,7 +77,7 @@ void DataStorage::setLastBallToucher(std::optional<transform::RobotHandle> handl
     this->last_ball_toucher = std::move(handle);
 }
 
-void DataStorage::setBallTouchingForbiddenRobot(std::optional<transform::RobotHandle> handle) {
+void DataStorage::setPotentialDoubleToucher(std::optional<transform::RobotHandle> handle) {
     this->ball_touch_forbidden_robot = std::move(handle);
 }
 

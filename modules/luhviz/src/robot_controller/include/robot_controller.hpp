@@ -2,7 +2,7 @@
 
 #include "imgui.h"
 #include "include/data_proxy.hpp"
-#include "robot_identifier.hpp"
+#include "core/robot_identifier.hpp"
 #include "new_rendering/include/gl_texture.hpp"
 
 namespace luhsoccer::luhviz {
@@ -13,6 +13,7 @@ class RobotController {
     void init();
     void render(bool* open, const std::vector<size_t>& active_controllers);
     bool isGlobalSteering();
+    bool isPointBasedSteering();
 
    private:
     luhsoccer::logger::Logger logger{"luhviz/robot_controller"};
@@ -20,7 +21,8 @@ class RobotController {
     DataProxy& proxy;
     std::vector<RobotIdentifier> robot_ids{};
     std::string ids_as_string{""};
-    bool global_movement = true;
+    bool global_movement{true};
+    bool point_based_movement{false};
 
     std::vector<size_t> registered_controllers{};
 

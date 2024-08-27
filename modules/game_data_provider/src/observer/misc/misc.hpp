@@ -16,8 +16,8 @@ namespace luhsoccer::observer::calculation::misc {
  * @param alpha_factor An additional factor the angle is multiplied with (can be used to manually adjust the angle)
  * @return double
  */
-bool isInsideAngle(const Eigen::Vector2d& ball_robot_vec, const Eigen::Vector2d& ball_vel, const double max_robot_vel,
-                   const double alpha_factor);
+std::pair<bool, double> isInsideAngle(const Eigen::Vector2d& ball_robot_vec, const Eigen::Vector2d& ball_vel,
+                                      const double max_robot_vel, const double alpha_factor);
 
 /**
  * @brief Returns the goal point of the given teams enemy team
@@ -28,11 +28,4 @@ bool isInsideAngle(const Eigen::Vector2d& ball_robot_vec, const Eigen::Vector2d&
  */
 Eigen::Vector2d getTeamsEnemyGoalPoint(const Team team, const transform::WorldModel& wm);
 
-/**
- * @brief Returns the field size as a vector
- *
- * @param wm The World Model
- * @return Eigen::Vector2d (width, height) of the field
- */
-Eigen::Vector2d getFieldSize(const transform::WorldModel& wm);
 }  // namespace luhsoccer::observer::calculation::misc

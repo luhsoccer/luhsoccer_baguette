@@ -12,11 +12,7 @@
 
 #include <chrono>
 #include <cmath>
-#include <iostream>
 #include <optional>
-#include <sstream>
-#include <thread>
-#include <utility>
 #include <deque>
 
 #include "logger/logger.hpp"
@@ -79,10 +75,6 @@ class TimePoint : public std::chrono::time_point<Clock> {
     // inherit all conversion etc. from chrono time_point
     using std::chrono::time_point<Clock>::time_point;
     inline TimePoint(const std::chrono::time_point<Clock>& time) : std::chrono::time_point<Clock>(time){};
-    // operator std::chrono::time_point<Clock>() const {
-    //   return std::chrono::time_point<Clock>(
-    //       time_since_epoch());
-    // };
 
     inline TimePoint(double time_in_sec) : TimePoint(Duration(time_in_sec)){};
 
@@ -98,25 +90,17 @@ class TimePoint : public std::chrono::time_point<Clock> {
     [[nodiscard]] inline int64_t asNSec() const { return time_since_epoch().count(); }
 };
 
-/**
- * @brief Point in time where the header was first included aka start of the
- * program
- *
- */
-const static TimePoint PROGRAM_START_TIME = Clock::now();
+TimePoint startTime();
 
 /**
  * @brief The time that has passed since the program was started
  */
-inline Duration timeSinceStart() { return Clock::now() - PROGRAM_START_TIME; }
+inline Duration timeSinceStart() { return Clock::now() - startTime(); }
 
 /**
  * @brief The current point in time in steady clock
  */
-inline TimePoint now() {
-    return TimePoint(0) + (Clock::now() - PROGRAM_START_TIME);
-    ;
-}
+inline TimePoint now() { return TimePoint(0) + (Clock::now() - startTime()); }
 
 /**
  * @brief Provides a sleeping function that accounts for execute times, intended
@@ -180,30 +164,13 @@ class Rate {
 class LoopStopwatch {
    public:
     LoopStopwatch(const std::string& name = "time::LoopStopwatch", double desired_frequency = 0.0,
-                  size_t window_size = 0)
-        : desired_frequency(desired_frequency), window_size(window_size), logger(name){};
+                  size_t window_size = 0);
 
-    void tik() {
-        auto time_now = now();
-        if (this->last_loop_time) {
-            this->loop_times.emplace_back(time_now - last_loop_time.value());
-            if (window_size != 0 && this->loop_times.size() > window_size) this->loop_times.pop_front();
-        }
-        this->last_loop_time = time_now;
-    }
+    void tik();
 
-    double measuredFrequency() {
-        Duration duration_sum(0.0);
-        for (const Duration& d : this->loop_times) {
-            duration_sum += d;
-        }
-        return 1.0 / (duration_sum.asSec() / this->loop_times.size());
-    }
+    double measuredFrequency();
 
-    void printResult() {
-        LOG_INFO(this->logger, "The measured frequency is {:0.2f}Hz (desired: {:0.2f}Hz) with a window_size of {:d}",
-                 this->measuredFrequency(), this->desired_frequency, this->window_size);
-    }
+    void printResult();
 
    private:
     std::optional<TimePoint> last_loop_time;
@@ -240,13 +207,10 @@ inline std::string to_string(const luhsoccer::time::Duration& d) {
 // NOLINTNEXTLINE(readability-identifier-naming) - std function naming style
 inline std::string to_string(const luhsoccer::time::TimePoint& time) { return to_string(time.time_since_epoch()); }
 
-inline std::ostream& operator<<(std::ostream& os, const luhsoccer::time::Duration& d) {
-    os << to_string(d);
-    return os;
-}
-
-inline std::ostream& operator<<(std::ostream& os, const luhsoccer::time::TimePoint& time) {
-    os << to_string(time);
-    return os;
-}
 }  // namespace std
+
+namespace luhsoccer::time {
+
+inline auto format_as(const luhsoccer::time::Duration& time) { return std::to_string(time); }
+inline auto format_as(const luhsoccer::time::TimePoint& time) { return std::to_string(time); }
+};  // namespace luhsoccer::time

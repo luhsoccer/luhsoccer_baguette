@@ -4,6 +4,86 @@
 
 namespace luhsoccer::transform {
 
+bool operator==(const FieldData& lhs, const FieldData& rhs) {
+    constexpr double EPS = 0.001;
+
+    // clang-format off
+    return lhs.division == rhs.division &&
+           std::abs(lhs.size.x() - rhs.size.x()) < EPS &&
+           std::abs(lhs.size.y() - rhs.size.y()) < EPS &&
+           std::abs(lhs.goal_width - rhs.goal_width) < EPS &&
+           std::abs(lhs.goal_depth - rhs.goal_depth) < EPS &&
+           std::abs(lhs.boundary_width - rhs.boundary_width) < EPS &&
+           std::abs(lhs.penalty_area_depth - rhs.penalty_area_depth) < EPS &&
+           std::abs(lhs.penalty_area_width - rhs.penalty_area_width) < EPS &&
+           std::abs(lhs.center_circle_radius - rhs.center_circle_radius) < EPS &&
+           std::abs(lhs.line_thickness - rhs.line_thickness) < EPS &&
+           std::abs(lhs.goal_center_to_penalty_mark - rhs.goal_center_to_penalty_mark) < EPS &&
+           std::abs(lhs.goal_height - rhs.goal_height) < EPS &&
+           std::abs(lhs.ball_radius - rhs.ball_radius) < EPS &&
+           std::abs(lhs.max_robot_radius - rhs.max_robot_radius) < EPS &&
+           std::abs(lhs.field_runoff_width - rhs.field_runoff_width) < EPS;
+    // clang-format on
+}
+
+RobotDataStorage::RobotDataStorage()
+    : possible_robots(generateAllPossibleRobots(MAX_ROBOTS_PER_TEAM)),
+      possible_ally_robots(generatePossibleRobots(MAX_ROBOTS_PER_TEAM, Team::ALLY)),
+      possible_enemy_robots(generatePossibleRobots(MAX_ROBOTS_PER_TEAM, Team::ENEMY)) {
+    for (size_t i = 0; i < MAX_ROBOTS_PER_TEAM; i++) {
+        this->ally_robots.emplace(RobotIdentifier(i, Team::ALLY),
+                                  std::make_shared<CircularBuffer<AllyRobotData>>(DEFAULT_TRANSFORM_BUFFER_SIZE));
+        this->enemy_robots.emplace(RobotIdentifier(i, Team::ENEMY),
+                                   std::make_shared<CircularBuffer<RobotData>>(DEFAULT_TRANSFORM_BUFFER_SIZE));
+    }
+};
+
+RobotDataStorage::RobotDataStorage(const RobotDataStorage& previous)
+    : possible_robots(generateAllPossibleRobots(MAX_ROBOTS_PER_TEAM)),
+      possible_ally_robots(generatePossibleRobots(MAX_ROBOTS_PER_TEAM, Team::ALLY)),
+      possible_enemy_robots(generatePossibleRobots(MAX_ROBOTS_PER_TEAM, Team::ENEMY)) {
+    for (size_t i = 0; i < MAX_ROBOTS_PER_TEAM; i++) {
+        RobotIdentifier ally(i, Team::ALLY);
+        auto previous_ally = previous.ally_robots.find(ally);
+        if (previous_ally != previous.ally_robots.end()) {
+            this->ally_robots.emplace(ally, std::make_shared<CircularBuffer<AllyRobotData>>(
+                                                DEFAULT_TRANSFORM_BUFFER_SIZE, previous_ally->second));
+        } else {
+            this->ally_robots.emplace(ally,
+                                      std::make_shared<CircularBuffer<AllyRobotData>>(DEFAULT_TRANSFORM_BUFFER_SIZE));
+        }
+        RobotIdentifier enemy(i, Team::ENEMY);
+        auto previous_enemy = previous.enemy_robots.find(enemy);
+        if (previous_enemy != previous.enemy_robots.end()) {
+            this->enemy_robots.emplace(enemy, std::make_shared<CircularBuffer<RobotData>>(DEFAULT_TRANSFORM_BUFFER_SIZE,
+                                                                                          previous_enemy->second));
+        } else {
+            this->enemy_robots.emplace(enemy,
+                                       std::make_shared<CircularBuffer<RobotData>>(DEFAULT_TRANSFORM_BUFFER_SIZE));
+        }
+    }
+};
+
+const std::vector<RobotIdentifier> RobotDataStorage::generatePossibleRobots(size_t robot_num, Team team) {
+    std::vector<RobotIdentifier> v;
+    for (size_t i = 0; i < robot_num; i++) {
+        // NOLINTNEXTLINE(modernize-use-emplace) - vector cant create RobotIdentifier
+        v.push_back(RobotIdentifier(i, team));
+    }
+    return v;
+};
+
+const std::vector<RobotIdentifier> RobotDataStorage::generateAllPossibleRobots(size_t robot_num) {
+    std::vector<RobotIdentifier> v;
+    for (size_t i = 0; i < robot_num; i++) {
+        // NOLINTNEXTLINE(modernize-use-emplace) - vector cant create RobotIdentifier
+        v.push_back(RobotIdentifier(i, Team::ALLY));
+        // NOLINTNEXTLINE(modernize-use-emplace) - vector cant create RobotIdentifier
+        v.push_back(RobotIdentifier(i, Team::ENEMY));
+    }
+    return v;
+};
+
 WorldModel::WorldModel(std::string global_frame, std::string ball_frame, double ball_displacement)
     : global_frame(std::move(global_frame)),
       ball_frame(std::move(ball_frame)),
@@ -14,7 +94,7 @@ WorldModel::WorldModel(std::string global_frame, std::string ball_frame, double 
       logger("transform::WorldModel") {
     // init global frame
     const std::unique_lock lock(this->transform_storage_mutex);
-    auto& global_frame_transform = this->transform_storage.insert({this->global_frame, {}}).first->second;
+    auto& global_frame_transform = this->transform_storage.try_emplace(this->global_frame).first->second;
     global_frame_transform.child_frame = this->global_frame;
     global_frame_transform.static_frame = true;
 
@@ -60,7 +140,7 @@ std::optional<std::array<WorldModel::FrameTransformElement, 2>> WorldModel::getT
     FrameTransformElement& transform_before = transform_elements[0];
     FrameTransformElement& transform_after = transform_elements[1];
     if (child_frame_transform.buffer->size() == 0) {
-        LOG_WARNING(this->logger, "No data received yet. Buffer empty!");
+        this->logger.warning("No data received yet. Buffer empty!");
         return std::nullopt;
     }
     try {
@@ -91,14 +171,18 @@ std::optional<std::array<WorldModel::FrameTransformElement, 2>> WorldModel::getT
                     break;
                 }
             }
-            if (!found) {
-                LOG_WARNING(this->logger, "TimePoint is to far in the past buffer not big enough!");
+            if (!found && child_frame_transform.buffer->size() > 1) {
+                this->logger.warning(
+                    "TimePoint {} for frame {} is too far in the past. Buffer not big enough! This can lead to huge "
+                    "performance "
+                    "problems. Check as soon as possible!",
+                    time, child_frame_transform.child_frame);
                 return std::nullopt;
             }
         }
 
     } catch (std::out_of_range& e) {
-        LOG_WARNING(this->logger, "Error {} caught. No data received yet. Buffer empty!", e.what());
+        this->logger.warning("Error {} caught. No data received yet. Buffer empty!", e.what());
         return std::nullopt;
     }
     return transform_elements;
@@ -116,7 +200,7 @@ bool WorldModel::pushTransform(TransformWithVelocity transform, bool static_fram
         std::unique_lock write_lock(this->transform_storage_mutex);
 
         //  child frame not known. Create new frame transform
-        iter = this->transform_storage.insert({transform.header.child_frame, {}}).first;
+        iter = this->transform_storage.try_emplace(transform.header.child_frame).first;
         auto& new_transform = iter->second;
         new_transform.static_frame = static_frame;
         new_transform.child_frame = transform.header.child_frame;
@@ -127,11 +211,9 @@ bool WorldModel::pushTransform(TransformWithVelocity transform, bool static_fram
     auto& child_frame_transform = iter->second;
     if (child_frame_transform.buffer->size() != 0 &&
         child_frame_transform.buffer->at(0).stamp >= transform.header.stamp && !static_frame) {
-        LOG_WARNING_STREAM(this->logger, "Data in Buffer of frame \"" << transform.header.child_frame
-                                                                      << " \" is newer! Newest data of Buffer is from "
-                                                                      << child_frame_transform.buffer->at(0).stamp
-                                                                      << ". Trying to push data for "
-                                                                      << transform.header.stamp);
+        this->logger.warning(
+            "Data in Buffer of frame \"{}\" is newer! Newest data of Buffer is from {}. Trying to push data for {}",
+            transform.header.child_frame, child_frame_transform.buffer->at(0).stamp, transform.header.stamp);
         return false;
     }
 
@@ -139,8 +221,7 @@ bool WorldModel::pushTransform(TransformWithVelocity transform, bool static_fram
     std::optional<Transform> parent_transform =
         getTransform(transform.header.parent_frame, this->global_frame, time::TimePoint(0));
     if (!parent_transform) {
-        LOG_WARNING_STREAM(this->logger,
-                           "Parent frame \"" << transform.header.parent_frame << "\" not known! Cant push transform!");
+        this->logger.warning("Parent frame \"{}\" not known! Cant push transform!", transform.header.parent_frame);
         return false;
     }
     FrameTransformElement transform_in_global_frame;
@@ -186,13 +267,10 @@ std::optional<Transform> WorldModel::getTransform(const std::string& child, cons
     }
 
     if (!this->transform_storage.contains(parent_frame)) {
-        LOG_WARNING_STREAM(this->logger,
-                           "Parent frame \"" << parent_frame << "\" not known! Cant calculate Transform!");
         return std::nullopt;
     }
     auto child_iter = this->transform_storage.find(child_frame);
     if (child_iter == this->transform_storage.end()) {
-        LOG_WARNING_STREAM(this->logger, "Child frame \"" << child_frame << "\" not known! Cant calculate Transform!");
         return std::nullopt;
     }
 
@@ -243,8 +321,7 @@ std::optional<Transform> WorldModel::getTransform(const std::string& child, cons
 
         return transform;
     } else {
-        LOG_WARNING_STREAM(this->logger,
-                           "Transform of frame \"" << child_frame << "\" not given at TimePoint " << time);
+        this->logger.warning("Transform of frame \"{}\" not given at TimePoint {}", child_frame, time);
         return std::nullopt;
     }
 }
@@ -253,6 +330,7 @@ std::optional<Velocity> WorldModel::getVelocity(const std::string& child, const 
                                                 const std::string& reference, time::TimePoint time,
                                                 time::Duration averaging_interval, bool lock) const {
     std::shared_lock read_lock(this->transform_storage_mutex, std::defer_lock);
+    auto time_copy = time;
 
     if (lock) {
         read_lock.lock();
@@ -277,19 +355,18 @@ std::optional<Velocity> WorldModel::getVelocity(const std::string& child, const 
     const std::string& reference_frame = reference.empty() ? this->global_frame : reference;
 
     if (!this->transform_storage.contains(parent_frame)) {
-        LOG_WARNING_STREAM(this->logger, "Parent frame \"" << parent_frame << "\" not known! Cant calculate Velocity!");
+        this->logger.warning("Parent frame \"\" not known! Cant calculate Velocity!", parent_frame);
         return std::nullopt;
     }
 
     auto child_iter = this->transform_storage.find(child_frame);
 
     if (child_iter == this->transform_storage.end()) {
-        LOG_WARNING_STREAM(this->logger, "Child frame \"" << child_frame << "\" not known! Cant calculate Velocity!");
+        this->logger.warning("Child frame \"{}\" not known! Cant calculate Velocity!", child_frame);
         return std::nullopt;
     }
     if (!this->transform_storage.contains(reference_frame)) {
-        LOG_WARNING_STREAM(this->logger,
-                           "Reference frame \"" << reference_frame << "\" not known! Cant calculate Velocity!");
+        this->logger.warning("Reference frame \"{}\" not known! Cant calculate Velocity!", reference_frame);
         return std::nullopt;
     }
 
@@ -328,7 +405,7 @@ std::optional<Velocity> WorldModel::getVelocity(const std::string& child, const 
         child_velocity = *transform_before.velocity + (*transform_after.velocity - *transform_before.velocity) * dt;
     } else {
         // no velocities given, need to calc with dx/dt
-        std::optional<Transform> transform_end = getTransform(child_frame, this->global_frame, time);
+        std::optional<Transform> transform_end = getTransform(child_frame, this->global_frame, time_copy);
         if (!transform_end) return std::nullopt;
         std::optional<Transform> transform_start =
             getTransform(child_frame, this->global_frame, transform_end->header.stamp - averaging_interval);
@@ -352,7 +429,7 @@ std::optional<Velocity> WorldModel::getVelocity(const std::string& child, const 
     }
 
     // transform into reference frame
-    std::optional<Transform> reference_transform = getTransform(reference_frame, this->global_frame, time);
+    std::optional<Transform> reference_transform = getTransform(reference_frame, this->global_frame, time_copy);
     if (!reference_transform) return std::nullopt;
 
     child_velocity.head(2) = reference_transform->transform.rotation().inverse() * child_velocity.head(2);
@@ -375,8 +452,20 @@ std::optional<Velocity> WorldModel::getVelocity(const std::string& child, const 
             return this->robot_data.ally_robots.at(identifier)->at(i);
         }
     }
-    // LOG_WARNING(this->logger, "Requested time point ({}) for data of robot '{}' is to old, buffer not big enough!",
-    //             time, identifier);
+
+    size_t size = this->robot_data.ally_robots.at(identifier).get()->size();
+    for (size_t i = 0; i < size; i++) {
+        auto& data = this->robot_data.ally_robots.at(identifier)->at(i);
+        this->logger.info("Buffer entry at timepoint: {} Ball in dribbler: {}", data.time, data.ball_in_dribbler);
+    }
+
+    if (size != 0) {
+        this->logger.warning(
+            "Requested time point ({}) for data of robot '{}' is to old, buffer not big enough! This can lead to huge "
+            "performance problems. Check as soon as possible!",
+            time, identifier);
+    }
+
     return std::nullopt;
 }
 
@@ -389,15 +478,21 @@ std::optional<Velocity> WorldModel::getVelocity(const std::string& child, const 
             return this->robot_data.enemy_robots.at(identifier)->at(0);
         }
 
-        for (size_t i = 0; i < this->robot_data.enemy_robots.at(identifier)->size(); i++) {
+        auto size = this->robot_data.enemy_robots.at(identifier)->size();
+        for (size_t i = 0; i < size; i++) {
             if (time > this->robot_data.enemy_robots.at(identifier)->at(i).time) {
                 return this->robot_data.enemy_robots.at(identifier)->at(i);
             }
         }
-        // TODO enable
-        // LOG_WARNING(this->logger, "Requested time point ({}) for data of robot '{}' is to old, buffer not big
-        // enough!",
-        //            time, identifier);
+
+        if (size != 0) {
+            this->logger.warning(
+                "Requested time point ({}) for data of robot '{}' is to old, buffer not big enough! This can lead to "
+                "huge "
+                "performance problems. Check as soon as possible!",
+                time, identifier);
+        }
+
         return std::nullopt;
     } else {
         return std::nullopt;
@@ -409,7 +504,7 @@ bool WorldModel::pushEnemyRobotData(const RobotIdentifier& identifier, const Rob
         return false;
     if (this->robot_data.enemy_robots.at(identifier)->size() != 0 &&
         this->robot_data.enemy_robots.at(identifier)->at(0).time > data.time) {
-        LOG_WARNING(this->logger, "Data in Buffer for robot '{}' is newer! Cant push older AllyRobotData!", identifier);
+        this->logger.warning("Data in Buffer for robot '{}' is newer! Cant push older AllyRobotData!", identifier);
         return false;
     }
     this->robot_data.enemy_robots.at(identifier)->push(data);
@@ -421,7 +516,7 @@ bool WorldModel::pushAllyRobotData(const RobotIdentifier& identifier, const Ally
         return false;
     if (this->robot_data.ally_robots.at(identifier)->size() != 0 &&
         this->robot_data.ally_robots.at(identifier)->at(0).time > data.time) {
-        LOG_WARNING(this->logger, "Data in Buffer for robot '{}' is newer! Cant push older AllyRobotData!", identifier);
+        this->logger.warning("Data in Buffer for robot '{}' is newer! Cant push older AllyRobotData!", identifier);
         return false;
     }
     this->robot_data.ally_robots.at(identifier)->push(data);
@@ -434,9 +529,6 @@ bool WorldModel::removeRobotFromField(const RobotIdentifier& identifier) {
     trans_with_vel.header.child_frame = identifier.getFrame();
     trans_with_vel.transform = OUT_OF_GAME_TRANSFORM;
     trans_with_vel.velocity = {0.0, 0.0, 0.0};
-    if (!this->pushTransform(trans_with_vel)) return false;
-    // required to push two times so if no transform present before there is no error
-    trans_with_vel.header.stamp = time::now() + time::Duration(0, 1);
     if (!this->pushTransform(trans_with_vel)) return false;
     if (identifier.isAlly()) {
         AllyRobotData d;
@@ -509,13 +601,13 @@ std::vector<RobotIdentifier> WorldModel::getVisibleRobots<Team::ENEMY>(const tim
             return this->game_states->at(i).second;
         }
     }
-    LOG_WARNING(this->logger, "Requested time point ({}) for a GameState is to old, buffer not big enough!", time);
+    this->logger.warning("Requested time point ({}) for a GameState is to old, buffer not big enough!", time);
     return std::nullopt;
 }
 
 bool WorldModel::pushNewGameState(const GameState& game_state, const time::TimePoint& time) {
     if (this->game_states->size() != 0 && this->game_states->at(0).first > time) {
-        LOG_WARNING(this->logger, "GameState in Buffer is newer! Cant push older GameState!");
+        this->logger.warning("GameState in Buffer is newer! Cant push older GameState!");
         return false;
     }
     this->game_states->push({time, game_state});
@@ -524,7 +616,7 @@ bool WorldModel::pushNewGameState(const GameState& game_state, const time::TimeP
 
 bool WorldModel::pushNewBallInfo(const BallInfo& ball_info) {
     if (this->ball_infos->size() != 0 && this->ball_infos->at(0).time > ball_info.time) {
-        LOG_WARNING(this->logger, "BallInfo in Buffer is newer! Cant push older GameState!");
+        this->logger.warning("BallInfo in Buffer is newer! Cant push older GameState!");
         return false;
     }
     this->ball_infos->push(ball_info);
@@ -537,7 +629,7 @@ bool WorldModel::updateBallPosition(const BallInfo& ball_info) {
             if (!ball_info.position.has_value()) return false;
             TransformWithVelocity t;
             t.transform = ball_info.position->first;
-            t.velocity = ball_info.position->second;
+            // t.velocity = ball_info.position->second;
             t.header.child_frame = this->ball_frame;
             t.header.parent_frame = this->global_frame;
             t.header.stamp = ball_info.time;
@@ -578,8 +670,34 @@ bool WorldModel::updateBallPosition(const BallInfo& ball_info) {
             return this->ball_infos->at(i);
         }
     }
-    LOG_WARNING(this->logger, "Requested time point ({}) for a BallInfo is to old, buffer not big enough!", time);
+    this->logger.warning("Requested time point ({}) for a BallInfo is to old, buffer not big enough!", time);
     return std::nullopt;
+}
+
+[[nodiscard]] std::optional<Eigen::Vector2d> WorldModel::getBallPosition() const {
+    auto elem = this->getTransform(this->ball_frame);
+    if (!elem.has_value()) return std::nullopt;
+
+    return elem->transform.translation();
+}
+
+[[nodiscard]] Eigen::Vector2d WorldModel::getBallPositionOr(const Eigen::Vector2d& default_value) const {
+    auto pos = this->getBallPosition();
+    if (!pos.has_value()) return default_value;
+    return *pos;
+}
+
+[[nodiscard]] std::optional<Eigen::Vector3d> WorldModel::getBallVelocity() const {
+    auto vel = this->getVelocity(this->ball_frame);
+    if (!vel.has_value()) return std::nullopt;
+
+    return vel->velocity;
+}
+
+[[nodiscard]] Eigen::Vector3d WorldModel::getBallVelocityOr(const Eigen::Vector3d& default_value) const {
+    auto vel = this->getBallVelocity();
+    if (!vel.has_value()) return default_value;
+    return *vel;
 }
 
 }  // namespace luhsoccer::transform

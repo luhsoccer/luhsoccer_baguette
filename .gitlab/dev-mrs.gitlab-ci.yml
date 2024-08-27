@@ -1,0 +1,22 @@
+check-labels-of-mr:
+  stage: workflow
+  image: python:3.11
+  before_script:
+    - ""
+  after_script:
+    - ""
+  script:
+    - pip install python-gitlab
+    - python3 .gitlab/scripts/check_labels_of_mr.py
+
+check-format:
+  stage: workflow
+  image: alpine:3.18
+  before_script:
+    - ""
+  after_script:
+    - ""
+  script:
+    - apk add clang-extra-tools
+    - clang-format --version
+    - clang-format --fcolor-diagnostics=1 --Werror --dry-run --verbose -i $(find modules | grep -e cpp -e hpp)

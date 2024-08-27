@@ -1,9 +1,6 @@
 #pragma once
 
 #include <utility>
-#include "spdlog/details/null_mutex.h"
-#include "spdlog/sinks/base_sink.h"
-#include <iomanip>
 #include <chrono>
 #include "imgui.h"
 

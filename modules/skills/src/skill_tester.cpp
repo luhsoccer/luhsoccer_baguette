@@ -1,11 +1,10 @@
 
 #include "skill_books/skill_tester.hpp"
+#include "skill_books/skill_library.hpp"
 #include "time/time.hpp"
-#include "local_planner/local_planner_module.hpp"
-#include "local_planner/skills/skill.hpp"
-#include "local_planner/skills/task.hpp"
-#include "skill_books/bod_skill_book.hpp"
-#include "transform/world_model.hpp"
+#include "robot_control/robot_control_module.hpp"
+#include "robot_control/skills/skill.hpp"
+#include "robot_control/skills/task_data.hpp"
 namespace luhsoccer::skills {
 
 void SkillTester::loop(std::atomic_bool& should_run) {
@@ -21,15 +20,15 @@ void SkillTester::loop(std::atomic_bool& should_run) {
 
     {
         RobotIdentifier robot = visible_robots[2];
-        local_planner::TaskData td(robot);
+        robot_control::TaskData td(robot);
         constexpr double TARGET_X = 0.3;
         td.required_positions.emplace_back(this->wm->getGlobalFrame(), TARGET_X, 0, 0);
-        const local_planner::Skill& skill = this->skill_book.getSkill(BodSkillNames::GO_TO_POINT);
+        const robot_control::Skill& skill = this->skill_lib.getSkill(GameSkillNames::GO_TO_POINT);
         if (skill.taskDataValid(td)) {
-            if (this->local_planner_module.setTask(&skill, td)) {
-                LOG_INFO(this->logger, "Successfully set skill '{}' for {}", skill.name, robot);
+            if (this->robot_control_module.setTask(&skill, td)) {
+                this->logger.info("Successfully set skill '{}' for {}", skill.name, robot);
             } else {
-                LOG_WARNING(this->logger, "Failed to set skill '{}' for {}", skill.name, robot);
+                this->logger.warning("Failed to set skill '{}' for {}", skill.name, robot);
             }
         }
     }

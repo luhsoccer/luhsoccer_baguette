@@ -8,11 +8,11 @@ namespace luhsoccer::observer {
     return this->data_storage_buffer.getFrontBuffer().getBestPassReceiver(ally);
 }
 
-[[nodiscard]] std::optional<double> Observer::getGoalProbability(const RobotIdentifier& ally) const {
+[[nodiscard]] double Observer::getGoalProbability(const RobotIdentifier& ally) const {
     return this->data_storage_buffer.getFrontBuffer().getGoalProbability(ally);
 }
 
-[[nodiscard]] std::optional<double> Observer::getThreatLevel(const RobotIdentifier& enemy) const {
+[[nodiscard]] double Observer::getThreatLevel(const RobotIdentifier& enemy) const {
     return this->data_storage_buffer.getFrontBuffer().getThreatLevel(enemy);
 }
 
@@ -40,8 +40,8 @@ namespace luhsoccer::observer {
     return this->data_storage_buffer.getFrontBuffer().getLastBallToucher();
 }
 
-[[nodiscard]] std::optional<transform::RobotHandle> Observer::getBallTouchingForbiddenRobot() const {
-    return this->data_storage_buffer.getFrontBuffer().getBallTouchingForbiddenRobot();
+[[nodiscard]] std::optional<transform::RobotHandle> Observer::getPotentialDoubleToucher() const {
+    return this->data_storage_buffer.getFrontBuffer().getPotentialDoubleToucher();
 }
 
 }  // namespace luhsoccer::observer

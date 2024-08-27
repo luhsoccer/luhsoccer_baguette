@@ -138,6 +138,8 @@ class GLContext {
    private:
     logger::Logger logger{"Luhviz/GLContext"};
     bool created = false;
+    constexpr static float GLYPH_HALF_WIDTH = 0.23f;
+    constexpr static float GLYPH_HALF_HEIGHT = 0.38f;
 };
 
 }  // namespace luhsoccer::luhviz

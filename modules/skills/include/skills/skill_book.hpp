@@ -1,8 +1,6 @@
 #pragma once
 
-#include "local_planner/skills/skill.hpp"
-#include <map>
-
+#include "robot_control/skills/skill.hpp"
 namespace luhsoccer::skills {
 
 template <typename E>
@@ -10,13 +8,13 @@ class SkillBook {
    public:
     friend class SkillBuilder;
 
-    const local_planner::Skill& getSkill(E skill_name) const { return this->skills.at(skill_name); }
+    const robot_control::Skill& getSkill(E skill_name) const { return this->skills.at(skill_name); }
 
-    static bool taskValid(const local_planner::Skill& skill, const local_planner::TaskData& data) {
+    static bool taskValid(const robot_control::Skill& skill, const robot_control::TaskData& data) {
         return skill.taskDataValid(data);
     }
 
-    bool taskValid(const E& skill_name, const local_planner::TaskData& task) {
+    bool taskValid(const E& skill_name, const robot_control::TaskData& task) {
         return SkillBook::taskValid(this->getSkill(skill_name), task);
     }
 
@@ -28,12 +26,15 @@ class SkillBook {
         for (const auto& [enumerator, skill] : this->skills) {
             names.push_back({skill.name, enumerator});
         }
+
+        std::sort(names.begin(), names.end(), [](const auto& a, const auto& b) { return a.first < b.first; });
+
         return names;
     }
 
    protected:
-    explicit SkillBook(std::map<E, local_planner::Skill> skills) : skills(std::move(skills)){};
-    std::map<E, local_planner::Skill> skills;
+    explicit SkillBook(std::map<E, robot_control::Skill> skills) : skills(std::move(skills)){};
+    std::map<E, robot_control::Skill> skills;
 };
 
 }  // namespace luhsoccer::skills

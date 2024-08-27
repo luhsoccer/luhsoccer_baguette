@@ -1,7 +1,6 @@
 #pragma once
 
 #include <glm/glm.hpp>
-#include "glm/gtx/intersect.hpp"
 #include <optional>
 #include <vector>
 #include "marker_service/marker_impl.hpp"

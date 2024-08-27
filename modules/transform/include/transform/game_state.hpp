@@ -98,15 +98,15 @@ enum class GameState {
     PENALTY_ENEMY,
 
     /**
-    * @brief our team is in a timeout
-    *
-    */
+     * @brief our team is in a timeout
+     *
+     */
     TIMEOUT_ALLY,
 
     /**
-    * @brief enemy team is in a timeout
-    *
-    */
+     * @brief enemy team is in a timeout
+     *
+     */
 
     TIMEOUT_ENEMY
 };
@@ -165,6 +165,6 @@ inline std::string_view getGameStateName(const GameState& state) {
     return "UNKOWN";
 }
 
-inline std::ostream& operator<<(std::ostream& os, const GameState& state) { return os << getGameStateName(state); }
+inline std::string_view format_as(GameState state) { return getGameStateName(state); }
 
 }  // namespace luhsoccer::transform

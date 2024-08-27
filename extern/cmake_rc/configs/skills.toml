@@ -1,17 +1,51 @@
+[Ball]
+ball_get_ball_k = 0.7
+ball_go_to_ball_radius = 0.198
+intercept_drive_k = 2.0
+kick_drive_in_ball_tolerance = 0.022
+kick_drive_in_ball_weight = 0.3
+
+[BallPlacementAvoid]
+ball_placement_avoid_speed = 1.5
+
+[DefendGoalOnCircle]
+defend_goal_circle_enemy_threshold = 0.5
+defend_goal_circle_line_goal_cutoff = 0.43
+defend_goal_circle_weight = 0.419
+goal_threshold = 3.0
+half_goal_width = 0.75
+
 [GeneralSkills]
+ball_obstacle_weight = 0.06
 defense_area_buffer = 0.25
-move_to_ball_pre_radius = 0.25
+
+[Goalie]
+goalie_defend_goal_margin = 0.1
+goalie_defend_on_circle_cutoff = 0.15
+
+[GoalieIntercept]
+goalie_intercept_goal_distance = 0.5
 
 [KickBallThroughTarget]
 kick_ball_through_target_preposition_angle = 0.2
+
+[Marking]
+marking_distance_weight = 0.5
+
+[OctoSkill]
+octo_skill_border_margin = 0.1
+octo_skill_max_vel = 1.0
+
+[Oktoskill]
+okto_skill_speed = 1.0
 
 [PassBallToRobot]
 kick_vel_multiplier = 0.22
 kick_vel_offset = 2.788
 
 [ReceiveBall]
-receive_ball_kg = 0.04
-receive_ball_kv = 0.011
+receive_ball_kg = 0.038
+receive_ball_kv = 0.013
 
 [getBall]
 get_ball_robot_radius = 0.035

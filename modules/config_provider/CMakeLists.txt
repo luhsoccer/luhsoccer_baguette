@@ -3,7 +3,9 @@ set(MODULE_NAME
 )
 
 add_library(${MODULE_NAME} STATIC
+
     src/config_provider.cpp
+    src/config_store.cpp
     src/utility.cpp
 
 
@@ -19,14 +21,15 @@ add_library(${MODULE_NAME} STATIC
 )
 
 find_package(Eigen3 REQUIRED)
-find_package(tomlplusplus REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(tomlplusplus REQUIRED IMPORTED_TARGET tomlplusplus)
 
 target_link_libraries(${MODULE_NAME}
     PRIVATE
     config_provider_resources
     PUBLIC
     Eigen3::Eigen
-    tomlplusplus::tomlplusplus
+    PkgConfig::tomlplusplus
     logger
     utils
 )
@@ -36,10 +39,5 @@ target_include_directories(${MODULE_NAME}
     PUBLIC include
 )
 
-target_compile_definitions(${MODULE_NAME} PUBLIC
-    TOML_HEADER_ONLY=0
-    TOML_EXCEPTIONS=0
-    TOML_ENABLE_FORMATTERS=1
-)
-
-target_precompile_headers(${MODULE_NAME} REUSE_FROM pch)
+# Can't be enabled here because tomlplusplus needs to be recompiled
+# target_precompile_headers(${MODULE_NAME} REUSE_FROM pch)

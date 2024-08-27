@@ -9,7 +9,7 @@ namespace luhsoccer::marker {
 struct LuhvizMarkers {
     std::unordered_map<std::string, MarkerImpl> markers;
     std::unordered_map<std::string, Marker2DImpl> markers2d;
-    std::unordered_map<std::string, std::unordered_map<size_t, Info>> info_markers;
+    std::map<std::string, std::map<std::string, Info>> info_markers;
     std::unordered_map<std::string, RobotInfo> robot_info_markers;
     std::unordered_map<std::string, LinePlot> plots;
 };

@@ -62,6 +62,10 @@ struct ObserverConfig : public Config {
                           "distances count less)",
                           "threat_score", THREAT_SCORE_INVERSE_BALL_DISTANCE_FACTOR, 0.05, 5);
 
+    DoubleParam threat_score_event_fire_threshold = createDoubleParam(
+        "threat_score_event_fire_threshold", "The Threshold after which the Threat score change fires an event",
+        "threat_score", 0.1, 0.0, 1.0);
+
     /* ------------------ STRATEGY TYPE ------------------*/
     static constexpr double STRATEGY_TYPE_MAX_TIME = 1.5;
     DoubleParam strategy_type_max_time =
@@ -129,6 +133,12 @@ struct ObserverConfig : public Config {
                           "The maximum distance a robot can be away from the ball (in seconds which are multiplied "
                           "with the current ball speed -> Results in Distance)",
                           "interceptor", INTERCEPTOR_MAX_DISTANCE_IN_BALL_VEL, 0.5, 10.0);
+
+    static constexpr double ROBOT_MOVED_EVENT_MIN_DISTANCE = 1.0;  // In meters
+    DoubleParam robot_moved_event_min_distance =
+        createDoubleParam("robot_moved_event_min_distance",
+                          "The minimum distance a robot has to move in order for a RobotMovedEvent to be triggered",
+                          "robot_moved_event", ROBOT_MOVED_EVENT_MIN_DISTANCE, 0.0, 10.0);
 };
 
 }  // namespace luhsoccer::config_provider

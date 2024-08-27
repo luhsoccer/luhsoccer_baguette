@@ -21,12 +21,12 @@ void Model::loadModel(const std::string& model_path) {
 
     if (!reader.ParseFromString(data, "", reader_config)) {
         if (!reader.Error().empty()) {
-            LOG_ERROR(logger, "TinyObjReader ({}): {}", model_path, reader.Error());
+            logger.error("TinyObjReader ({}): {}", model_path, reader.Error());
         }
     }
 
     if (!reader.Warning().empty()) {
-        LOG_WARNING(logger, "TinyObjReader ({}): {}", model_path, reader.Warning());
+        logger.warning("TinyObjReader ({}): {}", model_path, reader.Warning());
     }
 
     // get model data

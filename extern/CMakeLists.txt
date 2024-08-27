@@ -1,6 +1,8 @@
-# The protobuf messages for communicating with the robot and the ssl types
+check_submodule_git(luhsoccer_baguette_protobuf 84f6f2c97c94d59fc5438bbe3ca2943d936938ee)
 add_subdirectory(luhsoccer_baguette_protobuf)
-add_subdirectory(MPMCQueue)
+
+check_submodule_git(nanobind 61ca0f94867fd6461f072a93d9b222bd5e3198f9)
+add_subdirectory(nanobind)
+
 add_subdirectory(cmake_rc)
 add_subdirectory(msdfgl)
-add_subdirectory(tiny-process-library)

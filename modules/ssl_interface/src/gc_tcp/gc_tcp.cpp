@@ -3,6 +3,7 @@
 #include <bitset>
 #include "ssl_gc_ci.pb.h"
 #include "ssl_types_converter/ssl_types_converter.hpp"
+#include "google/protobuf/io/coded_stream.h"
 
 namespace luhsoccer::ssl_interface::connection {
 
@@ -43,32 +44,88 @@ std::optional<std::pair<uint32_t, std::size_t>> decodeUvariant(const asio::mutab
 
     return std::pair{computed_size, index};
 }
+
 }  // namespace
 
-GCTcpConnection::GCTcpConnection(SSLInterface& callback, asio::io_context& context, const std::string& ip,
+GCTcpConnection::GCTcpConnection(SSLInterface& callback, event_system::EventSystem& event_system, const std::string& ip,
                                  uint16_t port)
-    : interface(callback), context(context), socket(context), gc_address(asio::ip::make_address_v4(ip)), port(port) {}
+    : interface(callback),
+      event_system(event_system),
+      socket(event_system.getIoContext()),
+      gc_address(asio::ip::make_address_v4(ip)),
+      port(port),
+      reconnect_timer(event_system.getIoContext()),
+      endpoint(this->gc_address, this->port) {}
 
-void GCTcpConnection::setup() {
-    auto endpoint = asio::ip::tcp::endpoint(this->gc_address, this->port);
-    try {
-        this->socket.connect(endpoint);
+void GCTcpConnection::setup() { this->connect(); }
 
-    } catch (asio::system_error& e) {
-        LOG_WARNING(this->logger, "Could not connect to the Game Controller via TCP! ({})", e.what());
-    }
-
-    if (this->socket.is_open()) {
-        LOG_INFO(this->logger, "Connected to Game Controller via TCP");
-    }
+void GCTcpConnection::connect() {
+    this->socket.async_connect(this->endpoint, [this](asio::error_code code) {
+        if (code) {
+            // this->logger.warning("Could not connect to Game Controller via TCP: {}", code.message());
+            this->reconnect_timer.expires_after(std::chrono::seconds(3));
+            this->reconnect_timer.async_wait([this](asio::error_code code) {
+                if (!code) {
+                    this->connect();
+                }
+            });
+        } else {
+            this->logger.info("Connected to Game Controller via TCP");
+            this->writePacket();
+        }
+    });
 }
 
-void GCTcpConnection::read() {
+void GCTcpConnection::writePacket() {
+    CiInput packet;
+    packet.set_timestamp(std::chrono::duration_cast<std::chrono::nanoseconds>(
+                             std::chrono::high_resolution_clock::now().time_since_epoch())
+                             .count());
+
+    int packet_size = packet.ByteSize();
+
+    google::protobuf::io::ArrayOutputStream output_stream(this->send_data.data(),
+                                                          static_cast<int>(this->send_data.size()));
+    google::protobuf::io::CodedOutputStream coded_output(&output_stream);
+
+    coded_output.WriteVarint32(packet.ByteSizeLong());
+    packet.SerializeToCodedStream(&coded_output);
+
+    asio::mutable_buffer send_buffer{send_data.data(),
+                                     packet_size + google::protobuf::io::CodedOutputStream::VarintSize32(packet_size)};
+
+    this->socket.async_send(send_buffer, [this](asio::error_code code, std::size_t /*length*/) {
+        if (code) {
+            this->logger.warning("Could not send packet to Game Controller via TCP: {}. Try to reconnect!",
+                                 code.message());
+            this->reconnect_timer.expires_after(std::chrono::seconds(3));
+            this->reconnect_timer.async_wait([this](asio::error_code code) {
+                if (!code) {
+                    this->connect();
+                }
+            });
+        } else {
+            readPacket();
+        }
+    });
+}
+
+void GCTcpConnection::readPacket() {
     this->socket.async_receive(this->receive_buffer, [this](asio::error_code code, std::size_t length) {
         if (code) {
-            LOG_WARNING(this->logger, "Got error code {} with message: {}", code.value(), code.message());
+            this->logger.warning("Could not read packet from Game Controller via TCP: {}. Try to reconnect!",
+                                 code.message());
+            this->reconnect_timer.expires_after(std::chrono::seconds(3));
+            this->reconnect_timer.async_wait([this](asio::error_code code) {
+                if (!code) {
+                    this->connect();
+                }
+            });
         } else {
             bool packet_valid = false;
+
+            google::protobuf::io::ArrayInputStream input_stream(this->receive_data.data(), static_cast<int>(length));
+            google::protobuf::io::CodedInputStream coded_input(&input_stream);
 
             const auto packet_size_data = decodeUvariant(this->receive_buffer, length);
 
@@ -86,12 +143,15 @@ void GCTcpConnection::read() {
             }
 
             if (!packet_valid) {
-                LOG_WARNING(logger, "Received malformed GC-CI packet");
+                logger.warning("Received malformed GC-CI packet");
             }
 
-            if (!this->context.stopped()) {
-                read();
-            }
+            this->reconnect_timer.expires_after(std::chrono::milliseconds(10));
+            this->reconnect_timer.async_wait([this](asio::error_code code) {
+                if (!code) {
+                    writePacket();
+                }
+            });
         }
     });
 }
@@ -103,7 +163,7 @@ void GCTcpConnection::close() {
 #endif
         this->socket.close();
     } catch (asio::system_error& e) {
-        LOG_WARNING(this->logger, "Could not correctly close Socket! ({})", e.what());
+        this->logger.warning("Could not correctly close Socket! ({})", e.what());
     }
 }
 

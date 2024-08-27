@@ -4,6 +4,9 @@
 
 #include "simulation_interface/simulation_connector.hpp"
 #include "logger/logger.hpp"
+#include "config_provider/config_store_main.hpp"
+#include "config/simulation_interface_config.hpp"
+#include "event_system/event_system.hpp"
 #include "asio.hpp"
 
 class SimulatorError;
@@ -11,16 +14,13 @@ class SimulatorError;
 namespace luhsoccer::simulation {
 class ErforceSimulationConnector : public SimulationConnector {
    public:
-    ErforceSimulationConnector(VisionOutputCallback& vision_output, RobotOutputCallback& robot_feedback_output,
-                               SimulationOutputCallback& simulation_feedback_output)
-        : SimulationConnector(vision_output, robot_feedback_output, simulation_feedback_output) {}
+    ErforceSimulationConnector(event_system::EventSystem& event_system, VisionOutputCallback& vision_output,
+                               RobotOutputCallback& robot_feedback_output,
+                               SimulationOutputCallback& simulation_feedback_output);
 
     [[nodiscard]] SimulationConnectorType type() const override { return SimulationConnectorType::ERFORCE_SIMULATION; };
-    [[nodiscard]] time::Rate& getRate() override { return this->rate; };
 
     void load() override;
-
-    void update() override;
 
     void stop() override;
 
@@ -90,25 +90,18 @@ class ErforceSimulationConnector : public SimulationConnector {
     void closeRobotSocket(TeamColor color);
 
     TeamColor current_controlling;
-    asio::io_context context{};
-    asio::ip::tcp::resolver resolver{context};
+    event_system::EventSystem& event_system;
+    asio::ip::tcp::resolver resolver;
 
-    constexpr static int SIMULATION_VISION_PORT = 10020;
-    constexpr static int SIMULATION_CONTROL_PORT = 10300;
-    constexpr static int SIMULATION_CONTROL_BLUE_PORT = 10301;
-    constexpr static int SIMULATION_CONTROL_YELLOW_PORT = 10302;
+    SocketConnection vision_connection;
 
-    SocketConnection vision_connection{"localhost", std::to_string(SIMULATION_VISION_PORT), context,
-                                       &ErforceSimulationConnector::handleVisionRead};
-    SocketConnection blue_robot_connection{"localhost", std::to_string(SIMULATION_CONTROL_BLUE_PORT), context,
-                                           &ErforceSimulationConnector::handleRobotRead};
-    SocketConnection yellow_robot_connection{"localhost", std::to_string(SIMULATION_CONTROL_YELLOW_PORT), context,
-                                             &ErforceSimulationConnector::handleRobotRead};
-    SocketConnection simulation_connection{"localhost", std::to_string(SIMULATION_CONTROL_PORT), context,
-                                           &ErforceSimulationConnector::handleSimulationRead};
+    SocketConnection blue_robot_connection;
+
+    SocketConnection yellow_robot_connection;
+
+    SocketConnection simulation_connection;
 
     logger::Logger logger{"er_sim_connector"};
-    time::Rate rate{100.0, "ErForceSimulationConnection"};  // Frequency capped at 100 Hz to simulate a real camera??
 };
 
 }  // namespace luhsoccer::simulation

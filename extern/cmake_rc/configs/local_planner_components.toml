@@ -1,3 +1,9 @@
+[AvoidanceMode]
+angle_for_inverse = 2.356
+
+[defense_area]
+defense_area_margin_stop = 0.4
+
 [drive_step]
 setp_drive_min_relaxation_factor = 0.3
 
@@ -10,7 +16,6 @@ feature_robot_obstacle_k_cf = 0.1
 feature_robot_obstacle_k_gyro = 1.4
 
 [feature_obstacles]
-obstacle_collision_distance = 0.25
 
 [feature_target]
 feature_target_k_g = 0.1
@@ -21,7 +26,8 @@ feature_turn_around_ball_k_tab = 2.0
 [local_planner]
 
 [robot]
-robot_acc_max_y = 4.0
+robot_acc_max_x = 3.0
+robot_acc_max_y = 2.0
 robot_brk_max_x = 70.0
 robot_brk_max_y = 70.0
 robot_vel_max_theta = 8.0
@@ -37,3 +43,6 @@ simulation_max_deviation = 0.5
 
 [simulation_scoring]
 simulation_scoring_obstacle_distance_k = 500.0
+
+[stop_state]
+stop_state_min_ball_distance = 0.7

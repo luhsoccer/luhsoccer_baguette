@@ -1,6 +1,6 @@
 ---
-Checks:          'cppcoreguidelines-*,misc-*,modernize-*,performance-*,portability-*,bugprone-*,readability-identifier-naming,-modernize-use-trailing-return-type,-misc-non-private-member-variables-in-classes,-bugprone-easily-swappable-parameters,-cppcoreguidelines-non-private-member-variables-in-classes,-cppcoreguidelines-avoid-const-or-ref-data-members'
-WarningsAsErrors: ''
+Checks: "cppcoreguidelines-*,misc-*,modernize-*,performance-*,portability-*,bugprone-*,readability-identifier-naming,-modernize-use-trailing-return-type,-misc-non-private-member-variables-in-classes,-bugprone-easily-swappable-parameters,-cppcoreguidelines-non-private-member-variables-in-classes,-cppcoreguidelines-avoid-const-or-ref-data-members"
+WarningsAsErrors: ""
 AnalyzeTemporaryDtors: false
 HeaderFilterRegex: ".*hpp$"
 
@@ -35,6 +35,8 @@ CheckOptions:
     value: UPPER_CASE
   - key: readability-identifier-naming.MacroDefinitionIgnoredRegexp
     value: "^[A-Z]+(_[A-Z]+)*_$"
+  - key: readability-identifier-naming.FunctionIgnoredRegexp
+    value: "(format_as)"
   - key: readability-identifier-naming.MemberCase
     value: lower_case
   - key: readability-identifier-naming.PrivateMemberSuffix

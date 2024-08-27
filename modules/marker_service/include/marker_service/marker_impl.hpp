@@ -8,7 +8,6 @@
 #include "transform/transform.hpp"
 #include "glm/glm.hpp"
 #include "glm/gtc/quaternion.hpp"
-#include <glm/gtx/string_cast.hpp>
 
 namespace luhsoccer::marker {
 class MarkerImpl {
@@ -116,6 +115,22 @@ class MarkerImpl {
     [[nodiscard]] double getRotation2D() const { return glm::eulerAngles(this->rotation).y; }
 
     /**
+     * @brief Set the Velocity object
+     *
+     * @param x
+     * @param y
+     * @param rot
+     */
+    void setVelocity(double x, double y, double rot) { this->velocity = {x, y, rot}; }
+
+    /**
+     * @brief Get the Velocity object
+     *
+     * @return glm::dvec3
+     */
+    glm::dvec3 getVelocity() { return this->velocity; }
+
+    /**
      * @brief Set the Scale object
      *
      * @param scale
@@ -193,26 +208,11 @@ class MarkerImpl {
     [[nodiscard]] size_t getId() const { return this->id; }
 
     /**
-     * @brief Set the Limited Lifetime object
-     *
-     * @param limited_lifetime
-     */
-    void setLimitedLifetime(bool limited_lifetime) { this->limited_lifetime = limited_lifetime; }
-
-    /**
-     * @brief Get the Limited Lifetime object
-     *
-     * @return true
-     * @return false
-     */
-    [[nodiscard]] bool getLimitedLifetime() const { return this->limited_lifetime; }
-
-    /**
      * @brief Set the Robot Identifier object
      *
      * @param robot_handle
      */
-    void setRobotIdentifier(const RobotIdentifier &robot_handle) { this->robot_handle = robot_handle; }
+    void setRobotIdentifier(const RobotIdentifier& robot_handle) { this->robot_handle = robot_handle; }
 
     /**
      * @brief Get the Robot Identifier object
@@ -227,6 +227,7 @@ class MarkerImpl {
     MType type{MType::LAST_MARKER_TYPE};
     Type3D type_3d{Type3D::CYLINDER3D};
     glm::dvec3 position{0, 0, 0};
+    glm::dvec3 velocity{0, 0, 0};
     glm::dquat rotation{};
     glm::dvec3 scale{1, 1, 1};
     glm::dvec4 color{DEFAULT_COLOR};

@@ -6,6 +6,7 @@ add_library(${MODULE_NAME} STATIC
     # cpp
     src/debugger/debugger.cpp 
     src/game_info/game_info.cpp
+    src/game_log/game_log.cpp
     src/inspector/inspector.cpp
     src/main_window/main_window.cpp
     src/render_view/render_view.cpp
@@ -19,12 +20,8 @@ add_library(${MODULE_NAME} STATIC
     src/timeline/timeline.cpp
     src/robot_controller/robot_controller.cpp
     src/skill_wizard/skill_wizard.cpp
-    src/robot_info_display/robot_info_display.cpp
+    src/robert_display/robert_display.cpp
     src/info_display/info_display.cpp
-    src/imgui_backend/imgui_impl_glfw.cpp
-    src/imgui_backend/imgui_impl_opengl3.cpp
-    src/imgui_backend/imgui_stdlib.cpp
-    src/imgui_backend/implot_demo.cpp
     src/plotter/plotter.cpp
     src/new_rendering/gl_context.cpp
     src/new_rendering/gl_shader.cpp
@@ -33,11 +30,13 @@ add_library(${MODULE_NAME} STATIC
     src/new_rendering/gl_vertex_array.cpp
     src/new_rendering/gl_buffer.cpp
     src/new_rendering/gl_uniform.cpp
-    src/game_controller_window/game_controller_window.cpp
+    src/main_window/window_layout_handler.cpp
+    src/software_manager/software_manager.cpp
     # hpp
     src/debugger/include/debugger.hpp
     src/debugger/include/debugger_event.hpp
     src/game_info/include/game_info.hpp
+    src/game_log/include/game_log.hpp
     src/inspector/include/inspector.hpp
     src/main_window/include/main_window.hpp
     src/render_view/include/render_view.hpp
@@ -54,11 +53,8 @@ add_library(${MODULE_NAME} STATIC
     src/timeline/include/timeline.hpp
     src/robot_controller/include/robot_controller.hpp
     src/skill_wizard/include/skill_wizard.hpp
-    src/robot_info_display/include/robot_info_display.hpp
     src/info_display/include/info_display.hpp
-    src/imgui_backend/imgui_impl_glfw.h
-    src/imgui_backend/imgui_impl_opengl3.h
-    src/imgui_backend/imgui_stdlib.h
+    src/robert_display/include/robert_display.hpp
     src/new_rendering/include/gl_context.hpp
     src/new_rendering/include/gl_shader.hpp
     src/new_rendering/include/gl_shader_program.hpp
@@ -66,8 +62,9 @@ add_library(${MODULE_NAME} STATIC
     src/new_rendering/include/gl_vertex_array.hpp
     src/new_rendering/include/gl_buffer.hpp
     src/new_rendering/include/gl_uniform.hpp
+    src/main_window/include/window_layout_handler.hpp
     src/plotter/include/plotter.hpp
-    src/game_controller_window/include/game_controller_window.hpp
+    src/software_manager/include/software_manager.hpp
     # include
     include/${MODULE_NAME}/luhviz.hpp)
 
@@ -75,20 +72,22 @@ find_package(imgui REQUIRED)
 find_package(glfw3 REQUIRED)
 find_package(glad REQUIRED)
 find_package(glm REQUIRED)
-find_package(stb REQUIRED)
+find_package(Stb REQUIRED)
 find_package(tinyobjloader REQUIRED)
 find_package(implot REQUIRED)
-find_package(portable-file-dialogs REQUIRED)
+
+target_include_directories(${MODULE_NAME}
+    PRIVATE
+    ${Stb_INCLUDE_DIR}
+)
 
 target_link_libraries(${MODULE_NAME}
     PRIVATE
     imgui::imgui
-    glfw::glfw
+    glfw
     glad::glad
     glm::glm
-    stb::stb
     tinyobjloader::tinyobjloader
-    portable-file-dialogs::portable-file-dialogs
     implot::implot
     logger
     time
@@ -99,17 +98,22 @@ target_link_libraries(${MODULE_NAME}
     luhviz_ressources
     config_provider
     simulation_interface
-    local_planner
+    robot_control
     skills
     robot_interface
     scenario
     msdfgl
-    game_controller_interface
+    utils
+    software_manager
 )
 
 target_include_directories(${MODULE_NAME}
     PRIVATE src
     PUBLIC include
+)
+
+target_compile_definitions(${MODULE_NAME} PRIVATE
+    IMGUI_DEFINE_MATH_OPERATORS
 )
 
 target_precompile_headers(${MODULE_NAME} REUSE_FROM pch)

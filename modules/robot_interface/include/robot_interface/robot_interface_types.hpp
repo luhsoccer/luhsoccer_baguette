@@ -4,7 +4,7 @@
 #include <optional>
 #include <variant>
 #include <Eigen/Geometry>
-#include "robot_identifier.hpp"
+#include "core/robot_identifier.hpp"
 
 namespace luhsoccer::robot_interface {
 
@@ -13,10 +13,14 @@ enum class KickExecuteTime {
     WHEN_BALL_IN_DRIBBLER,
 };
 
+enum class KickType {
+    KICK,
+    CHIP,
+};
+
 struct KickCommand {
-    double kick_velocity{0.0};
-    double chip_velocity{0.0};
-    std::optional<int> cap_voltage{};
+    double velocity{0.0};
+    KickType type{KickType::KICK};
     KickExecuteTime execute_time{KickExecuteTime::NOW};
 };
 
@@ -76,9 +80,5 @@ struct RobotFeedback {
     std::optional<uint8_t> last_special_command_id;
     std::optional<RobotTelemetryRF> telemetry_rf;
 };
-
-std::ostream& operator<<(std::ostream& os, const RobotFeedback& feedback);
-
-std::ostream& operator<<(std::ostream& os, const RobotCommand& feedback);
 
 }  // namespace luhsoccer::robot_interface

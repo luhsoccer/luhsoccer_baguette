@@ -1,0 +1,5 @@
+[Goalie]
+defense_area_caution_brim = 0.1
+los_defend_aim_threshold = 1.0
+los_defend_max_distance = 0.9
+shot_on_goal_safety_margin = 0.4

@@ -17,6 +17,7 @@ find_package(Eigen3 REQUIRED)
 find_package(glm REQUIRED)
 
 target_link_libraries(${MODULE_NAME}
+    core
     Eigen3::Eigen
     logger
     time

@@ -2,9 +2,8 @@
 
 #include <vector>
 #include <string>
-#include <sstream>
 #include "imgui.h"
-#include "common_types.hpp"
+#include "core/common_types.hpp"
 
 namespace luhsoccer::luhviz {
 

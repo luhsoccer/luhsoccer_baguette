@@ -17,7 +17,6 @@ target_link_libraries(${MODULE_NAME}
     PRIVATE
     robot_interface
     PUBLIC
-    local_planner
     skills
     transform
     time

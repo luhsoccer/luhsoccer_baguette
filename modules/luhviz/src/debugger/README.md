@@ -1,0 +1,3 @@
+# Console
+The polls the logging data from the logger. That includes the timestamp, the module name and the origin(classname and line).
+The data is than piped into a custom made ImGui text field, which shows the x configured last lines of the logger (limited to save memory). There are also a searchbar for filtering the logging message by text and regex. Also there are checkboxes to filter after a certain origin module or to filter which logging level should be displayed and which not.

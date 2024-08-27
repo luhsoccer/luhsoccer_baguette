@@ -142,9 +142,14 @@ std::array<Color, 2> Marker::getCircularHeatmapColors() { return heatmap_colors;
 void Marker::setLuhvizTimer(double expiration_time) { this->luhviz_exp_time = expiration_time; }
 double Marker::getLuhvizExpirationTime() { return luhviz_exp_time; }
 
-GoalBorder::GoalBorder(transform::Position position, std::string ns, size_t id)
+GoalBorderDivA::GoalBorderDivA(transform::Position position, std::string ns, size_t id)
     : Marker(std::move(position), std::move(ns), id) {
-    this->type = MType::GOAL_BORDERS;
+    this->type = MType::GOAL_BORDERS_DIVA;
+}
+
+GoalBorderDivB::GoalBorderDivB(transform::Position position, std::string ns, size_t id)
+    : Marker(std::move(position), std::move(ns), id) {
+    this->type = MType::GOAL_BORDERS_DIVB;
 }
 
 Robot::Robot(transform::Position position, const RobotIdentifier& robot_handle, std::string ns, size_t id)
@@ -388,29 +393,35 @@ void RobotInfo::addParam(std::string key, std::string param) {
     this->params.insert_or_assign(std::move(key), std::move(param));
 }
 
-void RobotInfo::setStatus(std::string status, Color color) {
-    this->status = std::move(status);
-    this->status_color = color;
+void RobotInfo::addBadge(std::string key, RobotInfo::Badge badge) {
+    this->badges.insert_or_assign(std::move(key), std::move(badge));
 }
 
-void RobotInfo::setStatusTextColor(Color text_color) { this->status_text_color = text_color; }
+std::map<std::string, RobotInfo::Badge> RobotInfo::getBadges() const { return this->badges; }
 
-[[nodiscard]] std::string RobotInfo::getStatus() const { return this->status; }
+// void RobotInfo::setStatus(std::string status, Color color) {
+//     this->status = std::move(status);
+//     this->status_color = color;
+// }
 
-[[nodiscard]] marker::Color RobotInfo::getStatusColor() const { return this->status_color; }
+// void RobotInfo::setStatusTextColor(Color text_color) { this->status_text_color = text_color; }
 
-[[nodiscard]] marker::Color RobotInfo::getStatusTextColor() const { return this->status_text_color; }
+// [[nodiscard]] std::string RobotInfo::getStatus() const { return this->status; }
+
+// [[nodiscard]] marker::Color RobotInfo::getStatusColor() const { return this->status_color; }
+
+// [[nodiscard]] marker::Color RobotInfo::getStatusTextColor() const { return this->status_text_color; }
 
 [[nodiscard]] RobotIdentifier RobotInfo::getRobotId() const { return this->handle; }
 
 [[nodiscard]] std::map<std::string, std::string> RobotInfo::getParams() const { return this->params; }
 
-LinePlot::LinePlot(std::string id, float time_window) : Marker(transform::Position{"none"}, std::move(id), 0), time_window(time_window), newest_sample(time_window) {}
+LinePlot::LinePlot(std::string id, float time_window)
+    : Marker(transform::Position{"none"}, std::move(id), 0), time_window(time_window), newest_sample(time_window) {}
 
 LinePlot::LineHandle LinePlot::getLine(const std::string& name) {
-    for(size_t i = 0; i < lines.size(); i++) {
-        if(lines[i].getLabel() == name)
-            return i;
+    for (size_t i = 0; i < lines.size(); i++) {
+        if (lines[i].getLabel() == name) return i;
     }
     this->lines.emplace_back(name);
     return this->lines.size() - 1;
@@ -418,19 +429,18 @@ LinePlot::LineHandle LinePlot::getLine(const std::string& name) {
 
 void LinePlot::addPoint(LineHandle handle, float x, float y) {
     const float threshold = this->newest_sample - this->time_window;
-    if(x < threshold)
-        return;
+    if (x < threshold) return;
 
     this->lines[handle].addPoint(x, y);
-    if(x > this->newest_sample) {
+    if (x > this->newest_sample) {
         this->newest_sample = x;
 
         // erase outdated samples
-        for(LineData& line : this->lines) {
+        for (LineData& line : this->lines) {
             // remove all samples that were added before newest_sample - time_window
             size_t insert_idx = 0;
-            for(size_t i = 0; i < line.data_x.size(); i++) {
-                if(line.data_x[i] >= threshold) {
+            for (size_t i = 0; i < line.data_x.size(); i++) {
+                if (line.data_x[i] >= threshold) {
                     line.data_x[insert_idx] = line.data_x[i];
                     line.data_y[insert_idx] = line.data_y[i];
                     insert_idx++;
@@ -446,12 +456,12 @@ void LinePlot::LineData::addPoint(float x, float y) {
     size_t left = 0;
     size_t right = this->data_x.size();
 
-    while(left < right) {
+    while (left < right) {
         const size_t mid = (left + right) / 2;
         const float mid_x = this->data_x[mid];
-        if(mid_x < x) {
+        if (mid_x < x) {
             left = mid + 1;
-        }else{ // mid >= x
+        } else {  // mid >= x
             right = mid;
         }
     }
@@ -478,24 +488,19 @@ const LinePlot::LineData& LinePlot::operator[](size_t idx) const { return this->
 
 float LinePlot::getLeftLimit() const {
     float left = std::numeric_limits<float>::max();
-    for(const LineData& line : this->lines) {
-        if(line.data_x.size() > 0 && line.data_x.front() < left)
-            left = line.data_x.front();
+    for (const LineData& line : this->lines) {
+        if (line.data_x.size() > 0 && line.data_x.front() < left) left = line.data_x.front();
     }
 
-    if(left == std::numeric_limits<float>::max())
-        left = 0;
+    if (left == std::numeric_limits<float>::max()) left = 0;
     return left;
 }
-float LinePlot::getRightLimit() const {
-    return this->newest_sample;
-}
+float LinePlot::getRightLimit() const { return this->newest_sample; }
 
 void LinePlot::swap(LinePlot& other) {
     std::swap(lines, other.lines);
     this->newest_sample = other.newest_sample;
     this->time_window = other.time_window;
 }
-
 
 }  // namespace luhsoccer::marker

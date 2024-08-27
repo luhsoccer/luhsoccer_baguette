@@ -1,11 +1,5 @@
-include(FetchContent)
-FetchContent_Declare(benchmark
-    QUIET
-    URL https://github.com/google/benchmark/archive/refs/tags/v1.7.1.tar.gz
-)
-set(BENCHMARK_ENABLE_TESTING OFF CACHE BOOL "" FORCE)
-# configure build of googletest
-FetchContent_MakeAvailable(benchmark)
+
+find_package(benchmark REQUIRED)
 
 add_executable(
     benchmarks
@@ -14,6 +8,6 @@ add_executable(
 )
 
 target_link_libraries(benchmarks PRIVATE
-    benchmark_main
+    benchmark::benchmark_main
     transform
 )

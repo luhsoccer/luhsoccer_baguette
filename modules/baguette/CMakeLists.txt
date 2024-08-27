@@ -12,29 +12,31 @@ add_library(${MODULE_NAME} STATIC
     include/baguette.hpp
 )
 
+add_version_info(TARGET ${MODULE_NAME} PREFIX luhsoccer)
+
 target_include_directories(${MODULE_NAME}
     PRIVATE src
     PUBLIC include
 )
 
-
 target_link_libraries(${MODULE_NAME} PUBLIC
     ssl_interface
     simulation_interface
-    game_controller_interface
     config_provider
     logger
     transform
     skills
     robot_interface
     game_data_provider
-    role_manager
     robot_interface
     luhviz
     luhviz::rc
     scenario
     task_manager
     exception_handler
+    software_manager
+    vision_processor
+    robot_control
 
     PRIVATE
 )

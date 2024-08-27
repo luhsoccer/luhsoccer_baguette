@@ -8,6 +8,7 @@
 #include "observer/utility.hpp"
 #include "utils/utils.hpp"
 #include "config_provider/config_store_main.hpp"
+#include "config/observer_config.hpp"
 #include <algorithm>
 
 namespace luhsoccer::observer::calculation::goal_probability {
@@ -79,29 +80,30 @@ std::optional<std::vector<Eigen::Vector2d>> calculateShadows(const transform::Po
     return points;
 }
 
-std::vector<Eigen::Vector2d> cutShadows(const std::vector<Eigen::Vector2d>& points) {
-    constexpr double HALF_GOAL_SIZE = 0.5;
+std::vector<Eigen::Vector2d> cutShadows(const std::vector<Eigen::Vector2d>& points,
+                                        const std::shared_ptr<const transform::WorldModel> wm) {
+    const double half_goal_size = wm->getFieldData().goal_width / 2;
 
     std::vector<Eigen::Vector2d> shadows;
     for (const auto& point : points) {
-        if (point.x() > HALF_GOAL_SIZE) {
-            if (point.y() > HALF_GOAL_SIZE) {
+        if (point.x() > half_goal_size) {
+            if (point.y() > half_goal_size) {
                 continue;
             }
 
-            if (point.y() < -HALF_GOAL_SIZE) {
-                shadows.emplace_back(HALF_GOAL_SIZE, -HALF_GOAL_SIZE);
+            if (point.y() < -half_goal_size) {
+                shadows.emplace_back(half_goal_size, -half_goal_size);
             } else {
-                shadows.emplace_back(HALF_GOAL_SIZE, point.y());
+                shadows.emplace_back(half_goal_size, point.y());
             }
 
             continue;
         }
 
-        if (point.x() < -HALF_GOAL_SIZE) continue;
+        if (point.x() < -half_goal_size) continue;
 
-        if (point.y() < -HALF_GOAL_SIZE) {
-            shadows.emplace_back(point.x(), -HALF_GOAL_SIZE);
+        if (point.y() < -half_goal_size) {
+            shadows.emplace_back(point.x(), -half_goal_size);
         } else {
             shadows.push_back(point);
         }
@@ -136,14 +138,15 @@ std::vector<Eigen::Vector2d> combineShadows(std::vector<Eigen::Vector2d> shadows
     return filtered_shadows;
 }
 
-std::vector<Eigen::Vector2d> invertShadows(const std::vector<Eigen::Vector2d>& shadows) {
-    constexpr double HALF_GOAL_SIZE = 0.5;  // @todo get from world model
+std::vector<Eigen::Vector2d> invertShadows(const std::vector<Eigen::Vector2d>& shadows,
+                                           std::shared_ptr<const transform::WorldModel> wm) {
+    const double half_goal_size = wm->getFieldData().goal_width / 2;
 
     std::vector<Eigen::Vector2d> inverse_shadows;
 
     for (const auto& vec : shadows) {
         // find y that is closest to x but still bigger
-        double closest_y = HALF_GOAL_SIZE;
+        double closest_y = half_goal_size;
         bool found_change = false;
         for (const auto& inner_vec : shadows) {
             if (inner_vec.y() > vec.x() && inner_vec.y() < closest_y) {
@@ -153,7 +156,7 @@ std::vector<Eigen::Vector2d> invertShadows(const std::vector<Eigen::Vector2d>& s
         }
         // if none was found  set it to the goal height
         if (!found_change) {
-            closest_y = HALF_GOAL_SIZE;
+            closest_y = half_goal_size;
         }
 
         if (closest_y != vec.x()) {
@@ -161,9 +164,9 @@ std::vector<Eigen::Vector2d> invertShadows(const std::vector<Eigen::Vector2d>& s
         }
     }
 
-    Eigen::Vector2d bottom = {-HALF_GOAL_SIZE, 0};
+    Eigen::Vector2d bottom = {-half_goal_size, 0};
     // find y that is closest to x but still bigger
-    double closest_y = HALF_GOAL_SIZE;
+    double closest_y = half_goal_size;
     bool found_change = false;
     for (const auto& inner_vec : shadows) {
         if (inner_vec.y() >= bottom.x() && inner_vec.y() < closest_y) {
@@ -173,7 +176,7 @@ std::vector<Eigen::Vector2d> invertShadows(const std::vector<Eigen::Vector2d>& s
     }
     // if none was found  set it to the goal height
     if (!found_change) {
-        closest_y = HALF_GOAL_SIZE;
+        closest_y = half_goal_size;
     }
 
     // if the last step resulted in a 0-width-shaddow dont insert it

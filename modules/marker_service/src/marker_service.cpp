@@ -22,11 +22,11 @@ void MarkerService::displayMarker(Info marker) {
     std::lock_guard<std::mutex> guard(info_mutex);
 
     if (this->infos.find(key) == this->infos.end()) {
-        std::unordered_map<size_t, Info> info{{marker.getId(), std::move(marker)}};
+        std::map<std::string, Info> info{{marker.getInfoText(), std::move(marker)}};
         this->infos.insert(std::make_pair(std::move(key), std::move(info)));
     } else {
         auto& info = this->infos.at(key);
-        info.insert_or_assign(marker.getId(), std::move(marker));
+        info.insert_or_assign(marker.getInfoText(), std::move(marker));
     }
 }
 
@@ -40,10 +40,24 @@ void MarkerService::displayMarker(RobotInfo marker) {
         for (const auto& param : marker.getParams()) {
             it->second.addParam(param.first, param.second);
         }
-        it->second.setStatus(marker.getStatus(), marker.getStatusColor());
+        for (const auto& [key, badge] : marker.getBadges()) {
+            it->second.addBadge(key, badge);
+        }
     } else {
         // insert it
         this->robot_infos.insert_or_assign(std::move(key), std::move(marker));
+    }
+}
+
+void MarkerService::removeRobotInfoMarker(RobotIdentifier robot) {
+    const std::lock_guard robot_lock(this->robot_info_mutex);
+
+    RobotInfo info(robot);
+    std::string key = getKey(info.getNs(), info.getId());
+    auto it = this->robot_infos.find(key);
+
+    if (it != this->robot_infos.end()) {
+        this->robot_infos.erase(it);
     }
 }
 
@@ -113,9 +127,12 @@ void MarkerService::updateTransforms() {
             std::optional<Eigen::Affine2d> pose = marker.second.getPosition().getCurrentPosition(this->real_wm.value());
 
             if (pose.has_value()) {
-                convertMarkerForLuhviz(marker.second, pose.value());
-            } else {
-                LOG_WARNING(LOGGER, "failed to get position from worldmodel for marker " + std::string(marker.second));
+                // auto vel = this->real_wm.value()->getVelocity(marker.second.getPosition().getFrame());
+                // if (vel.has_value()) {
+                //     convertMarkerForLuhviz(marker.second, pose.value(), vel.value());
+                // } else {
+                convertMarkerForLuhviz(marker.second, pose.value(), transform::Velocity{});
+                // }
             }
         }
 
@@ -161,14 +178,18 @@ void MarkerService::createFrameMarkerForLuhviz(const transform::Transform& tf, s
     m_impl.setNs(frame_ns);
     m_impl.setText(tf.header.child_frame);
     m_impl.setId(index);
-    m_impl.setLimitedLifetime(false);
     luhviz_markers->markers.insert_or_assign(std::move(key), std::move(m_impl));
 
-    constexpr double OFFSET_XY = 0.05;
     constexpr int ID_OFFSET = 1000;
     constexpr double TEXT_SCALE = 0.4;
     const std::string frame_names_ns = "Frame_names";
     std::string key_name = frame_names_ns + "_" + tf.header.child_frame;
+
+    transform::Transform copy = tf;
+    Eigen::Vector2d offset(0, -0.1);
+    copy.transform *= Eigen::Translation2d(offset);
+    auto text_pos = copy.transform.translation();
+    auto text_angle = Eigen::Rotation2Dd(copy.transform.rotation()).angle();
     // add new text displaying the frame name
     MarkerImpl text;
     text.setType(MType::TEXT);
@@ -178,27 +199,27 @@ void MarkerService::createFrameMarkerForLuhviz(const transform::Transform& tf, s
     text.setText(tf.header.child_frame);
     text.setScale(TEXT_SCALE);
     text.setColor(toVec(Color::WHITE()));
-    text.setPosition({tf.transform.translation().x() + OFFSET_XY, 0, -tf.transform.translation().y() - OFFSET_XY});
-    text.setRotation(angle);
-    text.setLimitedLifetime(false);
+    text.setPosition({text_pos.x(), 0, -text_pos.y()});
+    text.setRotation(text_angle);
     luhviz_markers->markers.insert_or_assign(std::move(key_name), std::move(text));
 }
 
-void MarkerService::convertMarkerForLuhviz(Marker& marker, Eigen::Affine2d pose) {
+void MarkerService::convertMarkerForLuhviz(Marker& marker, Eigen::Affine2d pose, const transform::Velocity& vel) {
     // luhviz coordinate system is different, x,y,height is mapped to x=x, y=height and z = -y
     Eigen::Vector3d position = {pose.translation().x(), marker.getHeight(), -pose.translation().y()};
     double angle = Eigen::Rotation2Dd(pose.rotation()).angle();
 
     std::string key = getKey(marker.getNs(), marker.getId());
 
-    if (marker.getType() == MType::GOAL_BORDERS || marker.getType() == MType::ROBOT ||
-        marker.getType() == MType::BALL || marker.getType() == MType::FRAME || marker.getType() == MType::CONE ||
-        marker.getType() == MType::CUBE || marker.getType() == MType::CYLINDER || marker.getType() == MType::SPHERE ||
-        marker.getType() == MType::TORUS || marker.getType() == MType::ARROW || marker.getType() == MType::SUZANNE ||
-        marker.getType() == MType::TEXT) {
+    if (marker.getType() == MType::GOAL_BORDERS_DIVA || marker.getType() == MType::GOAL_BORDERS_DIVB ||
+        marker.getType() == MType::ROBOT || marker.getType() == MType::BALL || marker.getType() == MType::FRAME ||
+        marker.getType() == MType::CONE || marker.getType() == MType::CUBE || marker.getType() == MType::CYLINDER ||
+        marker.getType() == MType::SPHERE || marker.getType() == MType::TORUS || marker.getType() == MType::ARROW ||
+        marker.getType() == MType::SUZANNE || marker.getType() == MType::TEXT) {
         // populate marker 3d
         MarkerImpl m_impl{};
         m_impl.setPosition(glm::dvec3(position.x(), position.y(), position.z()));
+        m_impl.setVelocity(vel.velocity.x(), vel.velocity.y(), vel.velocity.z());
         m_impl.setRotation(angle);
         m_impl.setScale({marker.getScale().x, marker.getScale().y, marker.getScale().z});
         m_impl.setColor(toVec(marker.getColor()));
@@ -206,7 +227,6 @@ void MarkerService::convertMarkerForLuhviz(Marker& marker, Eigen::Affine2d pose)
         m_impl.setType3D(this->get3DMarkerType(marker.getType()));
         m_impl.setNs(marker.getNs());
         m_impl.setId(marker.getId());
-        m_impl.setLimitedLifetime(marker.getLifetime() != 0);
         if (marker.getType() == MType::ROBOT && marker.getRobotIdentifier().has_value()) {
             m_impl.setRobotIdentifier(marker.getRobotIdentifier().value());
         }
@@ -337,7 +357,7 @@ void MarkerService::convertMarkerForLuhviz(Marker& marker, Eigen::Affine2d pose)
         }
         luhviz_markers->markers2d.insert_or_assign(std::move(key), std::move(m2d_impl));
     } else {
-        LOG_WARNING(LOGGER, "marker type was not set correctly (was {})", static_cast<int>(marker.getType()));
+        LOGGER.warning("marker type was not set correctly (was {})", static_cast<int>(marker.getType()));
     }
 }
 

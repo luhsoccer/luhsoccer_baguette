@@ -1,7 +1,7 @@
 #pragma once
 
 #include <utility>
-#include "robot_identifier.hpp"
+#include "core/robot_identifier.hpp"
 #include "robot_interface/robot_interface_types.hpp"
 #include "transform/transform.hpp"
 #include "logger/logger.hpp"
@@ -29,7 +29,7 @@ using Matrix6d = Eigen::Matrix<double, 6, 6>;
 
 enum class RobotFilterMode { OUT_OF_FIELD, VISION_WITH_FEEDBACK, VISION_WITH_COMMAND, VISION, ROBOT_FEEDBACK };
 
-std::ostream& operator<<(std::ostream& out, const RobotFilterMode value);
+std::string_view format_as(const RobotFilterMode& mode);
 
 class KalmanFilter {
    public:
@@ -58,7 +58,7 @@ constexpr double DEFAULT_FILTER_FREQUENCY = 100;
 class RobotDataFilter {
    public:
     RobotDataFilter(const RobotIdentifier& id, std::string global_frame,
-                    time::Duration invalid_interval = time::Duration(1.0), double rate = DEFAULT_FILTER_FREQUENCY);
+                    time::Duration invalid_interval = time::Duration(0.5), double rate = DEFAULT_FILTER_FREQUENCY);
     // void setRobotOnField(bool on_field, time::TimePoint time = time::TimePoint(0));
     bool addVisionData(const Eigen::Affine2d& transform, double process_delay_ms,
                        time::TimePoint time = time::TimePoint(0));

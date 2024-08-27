@@ -4,7 +4,7 @@
 #include <string>
 #include <utility>
 #include "config_provider/parameters.hpp"
-#include "robot_identifier.hpp"
+#include "core/robot_identifier.hpp"
 #include "game_data_provider/team_info.hpp"
 #include "transform/game_state.hpp"
 
@@ -28,7 +28,8 @@ enum class ManipulationMode {
     ADD_POINT,
     ADD_DIRECTION,
     EXECUTE_SKILL,
-    BALL_SLINGSHOT
+    BALL_SLINGSHOT,
+    MEASURE
 };
 
 struct GameDataDisplay {
@@ -42,10 +43,10 @@ enum class ParamType { NONE, INT, DOUBLE, BOOL, STRING };
 class ConfigParam {
    public:
     virtual ~ConfigParam() = default;
-    ConfigParam(const ConfigParam &) = default;
-    ConfigParam(ConfigParam &&) = delete;
-    ConfigParam &operator=(const ConfigParam &) = default;
-    ConfigParam &operator=(ConfigParam &&) = delete;
+    ConfigParam(const ConfigParam&) = default;
+    ConfigParam(ConfigParam&&) = delete;
+    ConfigParam& operator=(const ConfigParam&) = default;
+    ConfigParam& operator=(ConfigParam&&) = delete;
 
     ConfigParam() = default;
     ConfigParam(std::string config, std::string group, std::string key, std::string description, bool is_writeable)

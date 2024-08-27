@@ -1,130 +1,79 @@
 #include "task_manager/task_manager.hpp"
-#include "role_manager/role_manager.hpp"
 #include "game_data_provider/game_data_provider.hpp"
-#include "observer/continuous_observer.hpp"
-#include "local_planner/local_planner.hpp"
-#include "local_planner/local_planner_module.hpp"
-#include "skill_books/bod_skill_book.hpp"
+#include "skill_books/skill_library.hpp"
+#include "robot_control/robot_control_module.hpp"
+#include "config_provider/config_store_main.hpp"
+#include "config/game_config.hpp"
 
 namespace luhsoccer::task_manager {
 
-TaskManager::TaskManager(role_manager::RoleManager& manager, const game_data_provider::GameDataProvider& gdp,
-                         const skills::BodSkillBook& book, local_planner::LocalPlannerModule& local_planner)
-    : role_manager(manager), game_data_provider(gdp), book(book), local_planner(local_planner) {}
+TaskManager::TaskManager(const game_data_provider::GameDataProvider& gdp, const skills::SkillLibrary& skill_lib,
+                         robot_control::RobotControlModule& robot_control)
+    : game_data_provider(gdp), skill_library(skill_lib), robot_control(robot_control) {}
 
-void TaskManager::loop(std::atomic_bool& /*should_run*/) {
-    for (const auto& role : role_manager.getRoles()) {
-        std::unique_lock lock(this->map_mutex);
-        auto iter = this->task_callbacks.find(role);
+bool TaskManager::updateTask(SkillNames skill_name, robot_control::TaskData data, bool force) {
+    if (!config_provider::ConfigProvider::getConfigStore().game_config.strategy_active) return false;
 
-        if (iter == this->task_callbacks.end()) {
-            continue;
-        }
-
-        const auto robot_ids = role_manager.getRobotsForRole(role);
-
-        if (robot_ids.empty()) {
-            // LOG_INFO(logger, "Skipping assignment for role: {}. No robots given", role);
-            continue;
-        }
-
-        const auto& callback = this->task_callbacks.at(role);
-
-        if (!callback) {
-            LOG_WARNING(logger, "Invalid function");
-            continue;
-        }
-
-        std::vector<transform::RobotHandle> handles;
-        handles.reserve(robot_ids.size());
-        for (const auto& id : robot_ids) {
-            handles.emplace_back(id, game_data_provider.getWorldModel());
-        }
-
-        const auto wm = game_data_provider.getWorldModel();
-        const auto result = callback(handles, game_data_provider.getObserver(), game_data_provider.getWorldModel());
-        for (const auto& kv : result) {
-            updateSkill(kv.first, kv.second.first, kv.second.second);
-        }
-    }
-
-    rate.sleep();
-}
-
-void TaskManager::updateSkill(RobotIdentifier robot, skills::BodSkillNames skill_name, local_planner::TaskData data) {
-    const auto& skill = book.getSkill(skill_name);
+    const auto& skill = skill_library.getSkill(skill_name);
+    const auto robot = data.robot;
 
     if (!skill.taskDataValid(data)) {
-        LOG_WARNING(logger, "Won't set skill '{}'. TaskData invalid!", skill.name);
-        return;
+        logger.warning("Won't set skill '{}'. TaskData invalid!", skill.name);
+        return false;
     }
 
-    const auto state = local_planner.getState(robot);
+    const auto state = robot_control.getState(robot);
 
     if (!state) {
-        LOG_WARNING(logger, "Got no state from local planner. This should not happen");
-        return;
+        logger.warning("Got no state from local planner. This should not happen");
+        return false;
     }
 
-    if (state.value() == local_planner::LocalPlanner::LocalPlannerState::IDLE) {
-        if (!local_planner.setTask(&skill, data)) {
-            LOG_WARNING(logger, "Could not set skill for robot: {}", robot);
+    if (state.value() == robot_control::RobotControllerState::IDLE) {
+        if (!robot_control.setTask(&skill, data)) {
+            logger.warning("Could not set skill for robot: {}", robot);
+            return false;
         } else {
             this->last_skill.insert_or_assign(robot, skill_name);
             this->last_task_data.insert_or_assign(robot, data);
         }
-        return;
     } else {  // Compare last task data with current to find out if different
         // First check if skill names differ
         auto last_skill_iter = this->last_skill.find(robot);
         if (last_skill_iter == this->last_skill.end() || last_skill_iter->second != skill_name) {
             // Skill names differ, set new skill
-            LOG_INFO(logger, "Got new skill for robot {}. Update task", robot);
-            local_planner.cancelTask(robot);
-            if (!local_planner.setTask(&skill, data)) {
-                LOG_WARNING(logger, "Could not set skill for robot: {}", robot);
+            logger.info("Got new skill for robot {}. Update task", robot);
+            robot_control.cancelTask(robot);
+            if (!robot_control.setTask(&skill, data)) {
+                logger.warning("Could not set skill for robot: {}", robot);
+                return false;
             } else {
                 this->last_skill.insert_or_assign(robot, skill_name);
                 this->last_task_data.insert_or_assign(robot, data);
             }
-            return;
         }
         // If skill names are the same we must check if the task data differs
         auto last_td_iter = this->last_task_data.find(robot);
-        if (last_td_iter == this->last_task_data.end() || !this->isTaskDataSame(last_td_iter->second, data)) {
+        if (last_td_iter == this->last_task_data.end() || !this->isTaskDataSame(last_td_iter->second, data) || force) {
             // Task data differ, set new skill
-            LOG_INFO(logger, "Got new task data for robot {}. Update task", robot);
-            local_planner.cancelTask(robot);
-            if (!local_planner.setTask(&skill, data)) {
-                LOG_WARNING(logger, "Could not set skill for robot: {}", robot);
+            logger.info("Got new task data for robot {}. Update task. Using force: {}", robot, force);
+            robot_control.cancelTask(robot);
+            if (!robot_control.setTask(&skill, data)) {
+                logger.warning("Could not set skill for robot: {}", robot);
+                return false;
             } else {
                 this->last_skill.insert_or_assign(robot, skill_name);
                 this->last_task_data.insert_or_assign(robot, data);
             }
-            return;
+        } else {
+            return false;
         }
     }
+
+    return true;
 }
 
-void TaskManager::registerCallback(const std::string& role, const TaskCallback& callback) {
-    std::lock_guard lock(this->map_mutex);
-
-    if (!callback) {
-        LOG_WARNING(logger, "Got function which is definitely not");
-    }
-
-    if (this->task_callbacks.contains(role)) {
-        LOG_WARNING(logger, "Overwriting already existing task callback for role '{}'", role);
-        this->task_callbacks.erase(role);
-    }
-    LOG_INFO(logger, "Registered callback for {}", role);
-
-    this->task_callbacks.insert({role, callback});
-
-    // this->task_callbacks.emplace(role, callback);
-}
-
-bool TaskManager::isTaskDataSame(const local_planner::TaskData& td1, const local_planner::TaskData& td2) const {
+bool TaskManager::isTaskDataSame(const robot_control::TaskData& td1, const robot_control::TaskData& td2) const {
     if (td1.robot != td2.robot) {
         return false;
     }
@@ -225,9 +174,22 @@ bool TaskManager::isTaskDataSame(const local_planner::TaskData& td1, const local
     return true;
 }
 
-void TaskManager::stop() {
-    std::lock_guard lock(this->map_mutex);
-    this->task_callbacks.clear();
+std::optional<SkillNames> TaskManager::getLastSkill(const RobotIdentifier& robot) const {
+    auto iter = this->last_skill.find(robot);
+    if (iter == this->last_skill.end()) {
+        return std::nullopt;
+    } else {
+        return iter->second;
+    }
+}
+
+std::optional<robot_control::TaskData> TaskManager::getLastTaskData(const RobotIdentifier& robot) const {
+    auto iter = this->last_task_data.find(robot);
+    if (iter == this->last_task_data.end()) {
+        return std::nullopt;
+    } else {
+        return iter->second;
+    }
 }
 
 }  // namespace luhsoccer::task_manager

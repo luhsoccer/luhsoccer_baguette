@@ -1,4 +1,5 @@
 #include "include/game_info.hpp"
+#include "config/game_config.hpp"
 
 namespace luhsoccer::luhviz {
 
@@ -9,7 +10,12 @@ void GameInfo::init() {
     this->unknown_logo.create("res/team_logos/unknown.png", false, true);
 }
 
-void GameInfo::render() { this->renderGameInfo(); }
+void GameInfo::render(bool& open) {
+    if (!open) {
+        return;
+    }
+    this->renderGameInfo(open);
+}
 
 static ImU32 gameStateToColor(luhsoccer::transform::GameState game_state) {
     switch (game_state) {
@@ -25,17 +31,17 @@ static ImU32 gameStateToColor(luhsoccer::transform::GameState game_state) {
     }
 }
 
-void GameInfo::renderGameInfo() {
+void GameInfo::renderGameInfo(bool& open) {
     this->display_data.ally_info = this->proxy.getAllyTeamInfo();
     this->display_data.enemy_info = this->proxy.getEnemyTeamInfo();
     this->display_data.game_state = this->proxy.getCurrentGameState();
 
     ImGui::PushStyleColor(ImGuiCol_Text, this->proxy.accent_text_color);
-    ImGui::Begin("Game Info", nullptr, window_flags);
+    ImGui::Begin("Game Info", &open, window_flags);
     ImGui::PopStyleColor();
 
     // draw colored rectangle
-    constexpr ImVec2 MAX_RECT_SIZE{150, 100};
+    constexpr ImVec2 MAX_RECT_SIZE{150, 150};
     const float y_margin = 50;
     const ImVec2 start_pos{this->window_size.x / 2 - MAX_RECT_SIZE.x / 2, y_margin};
     const ImVec2 end_pos{this->window_size.x / 2 + MAX_RECT_SIZE.x / 2, y_margin + MAX_RECT_SIZE.y};
@@ -78,33 +84,56 @@ void GameInfo::renderGameInfo() {
     ImGui::Text("%s", scores.c_str());
     ImGui::PopFont();
 
+    // save old gamestates
+    if (transform::getGameStateName(this->display_data.game_state.value()).compare(this->current_gamestate) != 0) {
+        this->second_last_gamestate = this->last_gamestate;
+        this->last_gamestate = this->current_gamestate;
+        this->current_gamestate = transform::getGameStateName(this->display_data.game_state.value());
+    }
+
     // draw game state
     ImGui::PushFont(this->fonts.getFont(fonts.FONT_LARGE));
-    const auto gamestate_str = transform::getGameStateName(this->display_data.game_state.value());
-    const ImVec2 gamestate_str_size = ImGui::CalcTextSize(gamestate_str.data());
-    ImGui::SetCursorPos(start_pos + ImVec2{rect_size.x / 2, rect_size.y * 3 / 4} - gamestate_str_size / 2);
-    ImGui::Text("%s", gamestate_str.data());
+    const ImVec2 gamestate_str_size = ImGui::CalcTextSize(current_gamestate.data());
+    ImGui::SetCursorPos(start_pos + ImVec2{rect_size.x / 2, rect_size.y * 5 / 6} - gamestate_str_size / 2);
+    ImGui::Text("%s", current_gamestate.data());
     ImGui::PopFont();
 
-    // draw team names background
-    if (this->display_data.ally_info->name != this->team_name_left || !this->ally_logo.isCreated()) {
-        // reload image left team
-        this->team_name_left = this->display_data.ally_info->name;
-        if (this->display_data.ally_info->name.compare("CMμs") == 0) {
-            this->team_name_left = "CMus";
-        } else if (this->display_data.ally_info->name.compare("RobôCin") == 0) {
-            this->team_name_left = "RoboCin";
+    // draw last gamestate
+    ImGui::PushFont(this->fonts.getFont(fonts.FONT_STANDARD));
+    const ImVec2 last_gamestate_str_size = ImGui::CalcTextSize(last_gamestate.data());
+    ImGui::SetCursorPos(start_pos + ImVec2{rect_size.x / 2, rect_size.y * 5 / 6} -
+                        ImVec2{last_gamestate_str_size.x / 2, gamestate_str_size.y * 1.3f});
+    ImGui::TextColored(ImVec4(0.8, 0.8, 0.8, 1.0), "%s", last_gamestate.data());
+    ImGui::PopFont();
+
+    // draw second last gamestate
+    ImGui::PushFont(this->fonts.getFont(fonts.FONT_MEDIUM));
+    const ImVec2 second_last_gamestate_str_size = ImGui::CalcTextSize(second_last_gamestate.data());
+    ImGui::SetCursorPos(start_pos + ImVec2{rect_size.x / 2, rect_size.y * 5 / 6} -
+                        ImVec2{second_last_gamestate_str_size.x / 2, gamestate_str_size.y * 2});
+    ImGui::TextColored(ImVec4(0.6, 0.6, 0.6, 1.0), "%s", second_last_gamestate.data());
+    ImGui::PopFont();
+
+    auto make_names_ascii = [](const std::string& name) -> std::string {
+        if (name.compare("CMμs") == 0) {
+            return "CMus";
+        } else if (name.compare("RobôCin") == 0) {
+            return "RoboCin";
         }
+        return name;
+    };
+    std::string team_name_left_new = make_names_ascii(this->display_data.ally_info->name);
+    std::string team_name_right_new = make_names_ascii(this->display_data.enemy_info->name);
+
+    // draw team names background
+    if (team_name_left_new != this->team_name_left || !this->ally_logo.isCreated()) {
+        // reload image left team
+        this->team_name_left = team_name_left_new;
         this->ally_logo_known = getTeamLogoTexture(team_name_left, this->ally_logo);
     }
-    if (this->display_data.enemy_info->name != this->team_name_right || this->enemy_logo.isCreated()) {
+    if (team_name_right_new != this->team_name_right || !this->enemy_logo.isCreated()) {
         // reload image right team
-        this->team_name_right = this->display_data.enemy_info->name;
-        if (this->display_data.enemy_info->name.compare("CMμs") == 0) {
-            this->team_name_right = "CMus";
-        } else if (this->display_data.enemy_info->name.compare("RobôCin") == 0) {
-            this->team_name_right = "RoboCin";
-        }
+        this->team_name_right = team_name_right_new;
         this->enemy_logo_known = getTeamLogoTexture(team_name_right, this->enemy_logo);
     }
 

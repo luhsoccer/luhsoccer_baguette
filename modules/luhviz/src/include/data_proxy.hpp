@@ -1,24 +1,33 @@
 #pragma once
 #include <imgui.h>
+#include "robot_control/skills/task_data.hpp"
 #include "scenario/scenario_executor.hpp"
-#include "scenario/scenario_book.hpp"
 #include "ssl_interface/ssl_interface.hpp"
 #include "config/config_store.hpp"
 #include "config_provider/config_store_main.hpp"
+#include "config/luhviz_internal_config.hpp"
 #include <glm/glm.hpp>
 #include <utility>
 #include "data_structs.hpp"
 #include "simulation_interface/simulation_interface.hpp"
-#include "local_planner/local_planner_module.hpp"
-#include "skill_books/bod_skill_book.hpp"
+#include "robot_control/robot_control_module.hpp"
+#include "skill_books/skill_library.hpp"
 #include "robot_interface/robot_interface.hpp"
 #include "game_data_provider/game_data_provider.hpp"
 #include "marker_service/marker_impl.hpp"
-#include "marker_service/marker_2d_impl.hpp"
+#include "software_manager/software_manager.hpp"
 
 namespace luhsoccer::luhviz {
 
-enum class GamepadControls { BUTTON_KICKER, BUTTON_DRIBBLER, BUTTON_VOLTAGE_UP, BUTTON_VOLTAGE_DOWN };
+enum class GamepadControls {
+    BUTTON_KICKER,
+    BUTTON_DRIBBLER,
+    BUTTON_VOLTAGE_UP,
+    BUTTON_VOLTAGE_DOWN,
+    BUTTON_GET_BALL,
+    BUTTON_GO_TO_GOAL,
+    BUTTON_TOGGLE_KICKER_CHIPPER
+};
 enum class GamepadStatus { DISSCONECTED, CONNECTED, INPUT_RECEIVED };
 
 struct PerRobotControlData {
@@ -32,19 +41,30 @@ struct PerRobotControlData {
 struct PerControllerData {
     float last_x = 0.0f;
     float last_y = 0.0f;
+    float last_rx = 0.0f;
+    float last_ry = 0.0f;
     float last_rot = 0.0f;
     int gamepad_dribbler_buttonstate = 0;
-    int gamepad_voltage_up_buttonstate = 0;
-    int gamepad_voltage_down_buttonstate = 0;
+    int gamepad_kick_velocity_up_buttonstate = 0;
+    int gamepad_velocity_down_buttonstate = 0;
+    int gamepad_chipper_buttonstate = 0;
     std::optional<RobotIdentifier> robot_id;
 };
 
 class DataProxy {
    public:
-    DataProxy(ssl_interface::SSLInterface& ssl, simulation_interface::SimulationInterface& sim,
-              local_planner::LocalPlannerModule& local_planner, skills::BodSkillBook& skill_book,
-              robot_interface::RobotInterface& robot_interface, game_data_provider::GameDataProvider& gdp,
-              scenario::ScenarioExecutor& scenario_executor);
+    DataProxy(software_manager::SoftwareManager& sm, ssl_interface::SSLInterface& ssl,
+              simulation_interface::SimulationInterface& sim, robot_control::RobotControlModule& robot_control,
+              skills::SkillLibrary& skill_lib, robot_interface::RobotInterface& robot_interface,
+              game_data_provider::GameDataProvider& gdp, scenario::ScenarioExecutor& scenario_executor);
+
+    static constexpr int MOVEMENT_DIR_NORTH = 0;
+    static constexpr int MOVEMENT_DIR_EAST = 1;
+    static constexpr int MOVEMENT_DIR_SOUTH = 2;
+    static constexpr int MOVEMENT_DIR_WEST = 3;
+
+    const int MIN_KICK_VELOCITY = 2.0;
+    const int MAX_KICK_VELOCITY = 6.5;
 
     std::map<size_t, RobotData> robot_data{};
     BallData ball_data{};
@@ -62,6 +82,9 @@ class DataProxy {
     void setVisionPublishMode(const std::string& src);
     std::string getVisionPublishMode();
 
+    ssl_interface::LogFileControlHandle& getLogFileControlHandle() const { return this->ssl.log_file_control_handle; }
+    void replayGamelog(std::string file);
+
     std::unordered_map<std::string, std::vector<std::unique_ptr<ConfigParam>>>& getAllConfigParams() {
         return this->config_params;
     }
@@ -70,7 +93,8 @@ class DataProxy {
      * @brief saves the int param in config_provider
      *
      */
-    void updateConfigParam(const std::string& key, std::unique_ptr<ConfigParam>& new_value);
+    void updateConfigParam(const std::string& config_name, const std::string& key,
+                           std::unique_ptr<ConfigParam>& new_value);
 
     /**
      * @brief saves all configs permantently
@@ -146,17 +170,17 @@ class DataProxy {
      * @brief sets the selected skill if it has changed
      *
      * @param skill_index
-     * @return std::optional<local_planner::Skill*> the selected skill object
+     * @return std::optional<robot_control::Skill*> the selected skill object
      */
-    std::optional<local_planner::Skill*> setSelectedSkill(std::optional<size_t> skill_index);
+    std::optional<robot_control::Skill*> setSelectedSkill(std::optional<size_t> skill_index);
 
     /**
      * @brief sets the selected skill if it has changed
      *
      * @param skill_index
-     * @return std::optional<local_planner::Skill*> the selected skill object
+     * @return std::optional<robot_control::Skill*> the selected skill object
      */
-    std::optional<local_planner::Skill*> setSelectedSkill2(std::optional<size_t> skill_index);
+    std::optional<robot_control::Skill*> setSelectedSkill2(std::optional<size_t> skill_index);
 
     /**
      * @brief returns the count of remaining points to choose for the taskData object
@@ -191,14 +215,14 @@ class DataProxy {
      *
      * @param robot_id
      */
-    void createTaskData(RobotIdentifier robot_id) { this->task_data = local_planner::TaskData{robot_id}; }
+    void createTaskData(RobotIdentifier robot_id) { this->task_data = robot_control::TaskData{robot_id}; }
 
     /**
      * @brief Create a Task Data object
      *
      * @param robot_id
      */
-    void createTaskData2(RobotIdentifier robot_id) { this->task_data2 = local_planner::TaskData{robot_id}; }
+    void createTaskData2(RobotIdentifier robot_id) { this->task_data2 = robot_control::TaskData{robot_id}; }
 
     /**
      * @brief set the related robots of the task data object
@@ -250,7 +274,7 @@ class DataProxy {
             this->td_positions.emplace_back(position);
             this->last_td_point_index = this->td_positions.size() - 1;
         } else {
-            LOG_WARNING(logger, "added more than the required points to taskdata");
+            logger.warning("added more than the required points to taskdata");
         }
     }
 
@@ -265,7 +289,7 @@ class DataProxy {
             this->td_positions2.emplace_back(position);
             this->last_td_point_index2 = this->td_positions2.size() - 1;
         } else {
-            LOG_WARNING(logger, "added more than the required points to taskdata 2");
+            logger.warning("added more than the required points to taskdata 2");
         }
     }
 
@@ -274,7 +298,7 @@ class DataProxy {
      *
      */
     void removeNewestTDPoint() {
-        if (this->last_td_point_index.has_value()) {
+        if (this->last_td_point_index.has_value() && this->td_positions.size() > 0) {
             this->td_positions.erase(this->td_positions.begin() + this->last_td_point_index.value());
             this->last_td_point_index = std::nullopt;
             this->manipulation_mode = ManipulationMode::ADD_POINT;
@@ -577,8 +601,11 @@ class DataProxy {
      * @param x horizontal axes
      * @param y vertical axes
      * @param rot rotational input
+     * @param global_movement Whether global movement is enabled
+     * @param point_based_movement Whether point-based movement is enabled
      */
-    void gamepadAxesInput(float x, float y, float rot, size_t id, bool global_movement);
+    void gamepadAxesInput(float x, float y, float rx, float ry, float rot, size_t id, bool global_movement,
+                          bool point_based_movement);
 
     /**
      * @brief sends all dribbler states
@@ -705,11 +732,11 @@ class DataProxy {
     static std::string getAvailableScenariosAsString();
 
     /**
-     * @brief Get the Kick Voltage
+     * @brief Get the kick velocity
      *
-     * @return int
+     * @return float
      */
-    int getKickVoltage() const;
+    float& getKickVelocity();
 
     /**
      * @brief Get the Movement Velocity of the controlled robot
@@ -756,14 +783,46 @@ class DataProxy {
      */
     bool& getGameControllerRunning() { return this->game_controller_running; }
 
+    /**
+     * @brief adds a point for measuring, returns the point count
+     *
+     * @return int
+     */
+    void addMeasurePoint(double x, double y, double z) { this->measure_points.emplace_back(x, y, z); }
+
+    /**
+     * @brief Get the Measure Points object
+     *
+     * @return std::vector<glm::dvec3>
+     */
+    std::vector<glm::dvec3>& getMeasurePoints() { return this->measure_points; }
+
+    /**
+     * @brief Get the Global Movement Dir object
+     *
+     * @return int&
+     */
+    int& getGlobalMovementDir();
+
+    software_manager::SoftwareManager& getSoftwareManager() { return this->software_manager; }
+
+    /**
+     * @brief Get the Chipper on value
+     *
+     * @return true
+     * @return false
+     */
+    bool getChipperOn();
+
    private:
     logger::Logger logger{"luhviz/data_proxy"};
+    software_manager::SoftwareManager& software_manager;
     ssl_interface::SSLInterface& ssl;
     robot_interface::RobotInterface& robot_interface;
     config_provider::ConfigStore& cs = config_provider::ConfigProvider::getConfigStore();
     simulation_interface::SimulationInterface& sim;
-    local_planner::LocalPlannerModule& local_planner;
-    skills::BodSkillBook& skill_book;
+    robot_control::RobotControlModule& robot_control;
+    skills::SkillLibrary& skill_lib;
 
     // data
     ssl_interface::VisionDataSource selected_vision_source{};
@@ -788,13 +847,13 @@ class DataProxy {
     std::unordered_map<std::string, std::vector<std::unique_ptr<ConfigParam>>> config_params{};
 
     // local planner / skills
-    std::vector<local_planner::Skill> available_skills{};
+    std::vector<robot_control::Skill> available_skills{};
     std::string available_skills_names{""};
     bool skills_loaded{false};
-    std::optional<local_planner::Skill*> selected_skill{};
-    std::optional<local_planner::Skill*> selected_skill2{};
-    std::optional<local_planner::TaskData> task_data{std::nullopt};
-    std::optional<local_planner::TaskData> task_data2{std::nullopt};
+    std::optional<robot_control::Skill*> selected_skill{};
+    std::optional<robot_control::Skill*> selected_skill2{};
+    std::optional<robot_control::TaskData> task_data{std::nullopt};
+    std::optional<robot_control::TaskData> task_data2{std::nullopt};
     std::vector<glm::dvec3> td_positions{};
     std::vector<glm::dvec3> td_positions2{};
     std::vector<std::optional<RobotIdentifier>> td_related_robots{};
@@ -806,9 +865,8 @@ class DataProxy {
 
     // controller
     float kick_velocity = 5.0f;
-    int cap_voltage = 0;
-    const int cap_voltage_steps = 10;
-    const int max_cap_voltage = 200;
+    bool chipper_on = false;
+    const int KICK_VELOCITY_STEPS = 0.5;
     // time until zero-kick is init
     double zero_kick_time = 0.5;
 
@@ -825,9 +883,10 @@ class DataProxy {
     float movement_velocity = 1.0f;
     float rotation_velocity = 1.0f;
     GamepadStatus gamepad_status = GamepadStatus::DISSCONECTED;
-    int gamepad_dribbler_buttonstate = 0;
-    int gamepad_voltage_up_buttonstate = 0;
-    int gamepad_voltage_down_buttonstate = 0;
+    time::TimePoint gamepad_skill_activated;
+    time::Duration gamepad_skill_active_duration{0.5};
+
+    int global_movement_direction{MOVEMENT_DIR_EAST};
 
     PerRobotControlData& getPerRobotControlerData(RobotIdentifier selected_robot_id);
 
@@ -836,6 +895,9 @@ class DataProxy {
 
     // Game Controller window
     bool game_controller_running = false;
+
+    // measure distances
+    std::vector<glm::dvec3> measure_points{};
 
     /**
      * @brief calls the local planner to check if TaskData for the Selected Skill is valid

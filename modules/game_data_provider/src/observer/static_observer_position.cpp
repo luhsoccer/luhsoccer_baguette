@@ -3,6 +3,7 @@
 #include "observer/static_observer.hpp"
 
 #include "config_provider/config_store_main.hpp"
+#include "config/observer_config.hpp"
 
 #include "observer/goal_probability/goal_probability.hpp"
 #include "observer/pass_probability/pass_probability.hpp"
@@ -11,18 +12,17 @@
 
 namespace luhsoccer::observer::calculation {
 
-std::optional<double> calculateGoalProbability(const transform::Position& pos, Team team,
-                                               std::shared_ptr<const transform::WorldModel> wm,
-                                               const time::TimePoint time) {
-    if (wm == nullptr) return std::nullopt;
+double calculateGoalProbability(const transform::Position& pos, Team team,
+                                std::shared_ptr<const transform::WorldModel> wm, const time::TimePoint time) {
+    if (wm == nullptr) return 0;
 
     /* ----------------- BALL SHADOWS ----------------- */
     // calculate the shadows on the goalline assuming the ball as a lightsource
     auto points = goal_probability::calculateShadows(pos, team, wm, std::nullopt, time);
-    if (!points.has_value()) return std::nullopt;
+    if (!points.has_value()) return 0;
 
     // cutting the shadows to the size of the goal
-    auto shadows = goal_probability::cutShadows(*points);
+    auto shadows = goal_probability::cutShadows(*points, wm);
     // combine and cut overlapping shadows
     auto goalshadows = goal_probability::combineShadows(shadows);
     // find the biggest shadow
@@ -39,12 +39,12 @@ std::optional<double> calculateGoalProbability(const transform::Position& pos, T
     /* ----------------- ANGLE PROBABILITY ----------------- */
     // this function represents shooting a goal from a certain angle (goes from 1 to 0 in the range [0; PI])
     const std::optional<double> goal_from_angle_prob = goal_probability::goalFromAngleProb(pos, team, wm, time);
-    if (!goal_from_angle_prob.has_value()) return std::nullopt;
+    if (!goal_from_angle_prob.has_value()) return 0;
 
     /* ----------------- DISTANCE PROBABILITY ----------------- */
     // this function represent the propability to score a goal from a certain distance
     const std::optional<double> goal_from_distance_prob = goal_probability::goalFromDistanceProb(pos, team, wm, time);
-    if (!goal_from_distance_prob.has_value()) return std::nullopt;
+    if (!goal_from_distance_prob.has_value()) return 0;
 
     /* ----------------- FINAL RESULT ----------------- */
     // between 0 and 1
@@ -62,13 +62,13 @@ std::optional<Eigen::Vector2d> calculateBestGoalPoint(const transform::Position&
     if (!points.has_value()) return std::nullopt;
 
     // cutting the shadows to the size of the goal
-    const auto shadows = goal_probability::cutShadows(*points);
+    const auto shadows = goal_probability::cutShadows(*points, wm);
 
     // combine and cut overlapping shadows
     const auto goal_shadows = goal_probability::combineShadows(shadows);
 
     // Inverse tha shaddows
-    const auto inverse_shaddows = goal_probability::invertShadows(goal_shadows);
+    const auto inverse_shaddows = goal_probability::invertShadows(goal_shadows, wm);
 
     // find the biggest shadow
     double biggest_shadow = 0;
@@ -83,8 +83,8 @@ std::optional<Eigen::Vector2d> calculateBestGoalPoint(const transform::Position&
     }
 
     // if no real goal point was found just try to shoot at the middle of the goal
-    constexpr double HALF_GOAL_SIZE = 0.5;
-    if (!(-HALF_GOAL_SIZE <= best_goal_point && best_goal_point <= HALF_GOAL_SIZE)) {
+    const double half_goal_size = wm->getFieldData().goal_width / 2;
+    if (!(-half_goal_size <= best_goal_point && best_goal_point <= half_goal_size)) {
         return std::nullopt;
     }
 
@@ -100,27 +100,26 @@ std::optional<Eigen::Vector2d> calculateBestGoalPoint(const transform::Position&
     return Eigen::Vector2d{x_goal_point, best_goal_point};
 }
 
-std::optional<double> calculateThreatLevel(const transform::Position& enemy_pos,
-                                           std::shared_ptr<const transform::WorldModel> world_model_ptr,
-                                           const time::TimePoint time) {
-    if (world_model_ptr == nullptr) return std::nullopt;
+double calculateThreatLevel(const transform::Position& enemy_pos,
+                            std::shared_ptr<const transform::WorldModel> world_model_ptr, const time::TimePoint time) {
+    if (world_model_ptr == nullptr) return 0;
 
     /* -------------- DISTANCE FROM GOAL -------------- */
     const auto goal_from_distance_prob =
         goal_probability::goalFromDistanceProb(enemy_pos, Team::ENEMY, world_model_ptr, time);
-    if (!goal_from_distance_prob.has_value()) return std::nullopt;
+    if (!goal_from_distance_prob.has_value()) return 0;
 
     /* -------------- ANGLE-PROBABILITY -------------- */
     const auto goal_from_angle_prob =
         goal_probability::goalFromAngleProb(enemy_pos, Team::ENEMY, world_model_ptr, time);
-    if (!goal_from_angle_prob.has_value()) return std::nullopt;
+    if (!goal_from_angle_prob.has_value()) return 0;
 
     /* -------------- DISTANCE TO BALL -------------- */
     const auto robot_pos = enemy_pos.getCurrentPosition(world_model_ptr, world_model_ptr->getGlobalFrame(), time);
-    if (!robot_pos.has_value()) return std::nullopt;
+    if (!robot_pos.has_value()) return 0;
 
     const auto ball_pos = transform::helper::getBallPosition(*world_model_ptr, time);
-    if (!ball_pos.has_value()) return std::nullopt;
+    if (!ball_pos.has_value()) return 0;
 
     const double distance_to_ball = utility::calculateDistance(robot_pos->translation(), *ball_pos);
 
@@ -273,21 +272,23 @@ std::optional<AllyRobot::BestPassReceiver> calculateBestPassReceiver(
     return AllyRobot::BestPassReceiver{transform::RobotHandle(*max_score_identifier, world_model), max_pass_score};
 }
 
-std::optional<double> calculatePassProbability(const transform::Position& passing_robot,
-                                               const transform::Position& receiving_robot, const Team team,
-                                               const std::shared_ptr<const transform::WorldModel>& world_model_ptr,
-                                               const time::TimePoint time) {
-    return pass_probability::calculatePassProbability(passing_robot, receiving_robot, team, world_model_ptr, time);
+double calculatePassProbability(const transform::Position& passing_robot, const transform::Position& receiving_robot,
+                                const Team team, const std::shared_ptr<const transform::WorldModel>& world_model_ptr,
+                                const time::TimePoint time) {
+    auto pass_probability =
+        pass_probability::calculatePassProbability(passing_robot, receiving_robot, team, world_model_ptr, time);
+    if (pass_probability.has_value()) return pass_probability.value();
+    return 0;
 }
 
 std::optional<std::pair<Eigen::Vector2d, bool>> calculateShootPoint(
     const transform::Position& robot, Team team, std::shared_ptr<const transform::WorldModel> world_model,
     const time::TimePoint time) {
     // In Meters:
-    const auto field_size = misc::getFieldSize(*world_model);
+    const auto field_size = world_model->getFieldData().size;
     const double field_width = field_size.x();
     const double field_height = field_size.y();
-    constexpr double GOAL_SIZE = 1.0;
+    const double goal_size = world_model->getFieldData().penalty_area_depth;
 
     struct Line {
         Line(Eigen::Vector2d pos, Eigen::Vector2d dir) : pos(std::move(pos)), dir(std::move(dir)) {}
@@ -333,7 +334,7 @@ std::optional<std::pair<Eigen::Vector2d, bool>> calculateShootPoint(
             // evaluate whether the point is inside our Goal
             bool robot_points_inside_goal =
                 ((team == Team::ENEMY && is_left_wall) || (team == Team::ALLY && !is_left_wall)) &&
-                edge_intersect.y() >= -GOAL_SIZE / 2 && edge_intersect.y() <= GOAL_SIZE / 2;
+                edge_intersect.y() >= -goal_size / 2 && edge_intersect.y() <= goal_size / 2;
 
             return std::make_pair(edge_intersect, robot_points_inside_goal);
         }

@@ -1,12 +1,11 @@
 #pragma once
 
-#include <iostream>
 #include <memory>
 #include <limits>
 #include <utility>
 #include <algorithm>
 
-#include "common_types.hpp"
+#include "core/common_types.hpp"
 #include "utils/utils.hpp"
 #include "parameters.hpp"
 #include "utility.hpp"
@@ -40,9 +39,9 @@ class Config {
         const char* prefix = std::getenv((std::string("BAGUETTE_CONFIG_PREFIX_") + uppercase_filename).c_str());
 
         if (prefix != nullptr) {
-            LOG_WARNING(logger::Logger("config_provider"),
-                        "Using config prefix {} for config {}. You can ignore this warning if it is intentional",
-                        prefix, this->pure_filename);
+            logger::Logger("config_provider")
+                .warning("Using config prefix {} for config {}. You can ignore this warning if it is intentional",
+                         prefix, this->pure_filename);
             this->pure_filename = std::string(prefix) + "_" + this->pure_filename;
 
             // derive config name again so that it includes the prefix
@@ -52,7 +51,7 @@ class Config {
         const auto home_path = getBaguetteDirectory();
 
         if (home_path.empty()) {
-            LOG_WARNING(logger::Logger("config_provider"), "No Baguette Directory Found!");
+            logger::Logger("config_provider").warning("No Baguette Directory Found!");
         } else {
             auto config_path = home_path;
 
@@ -86,19 +85,52 @@ class Config {
         this->updateTable();
     }
 
+    virtual ~Config() = default;
+
     template <typename ParamType>
     ParamType& createParam(std::unique_ptr<ParamType> param_ptr) {
         const auto& key = param_ptr->getKey();
 
         param_ptr->load();
 
+        // Override Param with value set in environment variable
+        // convert config name to upper case
+        std::string uppercase_filename(this->config_name.size(), ' ');
+        std::transform(this->config_name.begin(), this->config_name.end(), uppercase_filename.begin(), ::toupper);
+
+        std::string uppercase_param_key(key.size(), ' ');
+        std::transform(key.begin(), key.end(), uppercase_param_key.begin(), ::toupper);
+
+        const char* param_override = std::getenv(
+            (std::string("BAGUETTE_C_") + uppercase_filename + std::string("_P_") + uppercase_param_key).c_str());
+
+        if (param_override != nullptr) {
+            // param_ptr->set()
+            std::string val(param_override);
+            if constexpr (std::is_same_v<ParamType, BoolParamClass>) {
+                if (val == "true" || val == "1" || val == "t") {
+                    param_ptr->set(true);
+                } else if (val == "false" || val == "0" || val == "f") {
+                    param_ptr->set(false);
+                }
+            } else if constexpr (std::is_same_v<ParamType, IntParamClass>) {
+                // Dont handle exception; let baguette crash
+                param_ptr->set(std::stoi(val));
+            } else if constexpr (std::is_same_v<ParamType, DoubleParamClass>) {
+                // Dont handle exception; let baguette crash
+                param_ptr->set(std::stod(val));
+            } else if constexpr (std::is_same_v<ParamType, StringParamClass>) {
+                param_ptr->set(val);
+            }
+        }
+
         const std::string_view dbg_key_store = param_ptr->getKey();
 
         auto result = this->params.insert({param_ptr->getKey(), std::move(param_ptr)});
 
         if (!result.second) {
-            LOG_ERROR(logger::Logger("config_provider"), "Parameter name '{}' repeated! Change keys to be unique!",
-                      dbg_key_store);
+            logger::Logger("config_provider")
+                .warning("Parameter name '{}' repeated! Change keys to be unique!", dbg_key_store);
         }
 
         // For the case that no config file currently exists, create one
@@ -215,13 +247,13 @@ class Config {
 
         const std::string cmake_rc_file_path = CMAKERC_PATH + "/" + this->pure_filename;
         if (!util::parseFile(cmake_rc_file_path, this->table, true)) {
-            LOG_DEBUG(logger::Logger("config_provider"), "File '{}' could not be opened!", cmake_rc_file_path);
+            logger::Logger("config_provider").debug("File '{}' could not be opened!", cmake_rc_file_path);
         }
 
         if (!this->config_home_filepath.empty()) {
             if (!util::parseFile(this->config_home_filepath, this->diff_table, false)) {
-                LOG_DEBUG(logger::Logger("config_provider"), "Optional (local) File '{}' could not be opened!",
-                          this->config_home_filepath);
+                logger::Logger("config_provider")
+                    .debug("Optional (local) File '{}' could not be opened!", this->config_home_filepath);
             }
         }
     }

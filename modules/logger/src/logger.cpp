@@ -1,18 +1,80 @@
-#include "logger/logger.hpp"
+#include <cstddef>
+
 #include "spdlog/spdlog.h"
 #include "spdlog/sinks/stdout_color_sinks.h"
-#include "logger/gui_sink.hpp"
 #include "spdlog/sinks/rotating_file_sink.h"
+
 #include "utils/utils.hpp"
+#include "logger/logger.hpp"
+#include "gui_sink.hpp"
 
 namespace luhsoccer::logger {
 
-// std::shared_ptr<GuiSinkMt> Logger::gui_sink = std::make_shared<GuiSinkMt>();
+namespace {
+spdlog::level::level_enum convertToSpdlog(LogLevel level) {
+    spdlog::level::level_enum spdlog_level = spdlog::level::off;
 
-spdlog::level::level_enum getLogLevelFromEnv() {
+    switch (level) {
+        case LogLevel::TRACE:
+            spdlog_level = spdlog::level::trace;
+            break;
+        case LogLevel::DEBUG:
+            spdlog_level = spdlog::level::debug;
+            break;
+        case LogLevel::INFO:
+            spdlog_level = spdlog::level::info;
+            break;
+        case LogLevel::WARNING:
+            spdlog_level = spdlog::level::warn;
+            break;
+        case LogLevel::ERROR:
+            spdlog_level = spdlog::level::err;
+            break;
+        case LogLevel::OFF:
+            break;
+    }
+
+    return spdlog_level;
+}
+}  // namespace
+
+Logger::~Logger() = default;
+
+Logger::Logger(const Logger& rhs) : logger_impl(rhs.logger_impl), active(rhs.active.load()) {}
+
+Logger::Logger(Logger&& rhs) noexcept : logger_impl(std::move(rhs.logger_impl)), active(rhs.active.load()) {}
+
+Logger& Logger::operator=(const Logger& rhs) {
+    if (this != &rhs) {
+        this->logger_impl = rhs.logger_impl;
+        this->active = rhs.active.load();
+    }
+    return *this;
+}
+
+Logger& Logger::operator=(Logger&& rhs) noexcept {
+    if (this != &rhs) {
+        this->logger_impl = std::move(rhs.logger_impl);
+        this->active = rhs.active.load();
+    }
+    return *this;
+}
+
+void Logger::logImpl(const CustomSourceLog& loc, LogLevel level, std::string_view message) const {
+    if (!active) return;
+    this->logger_impl->log(spdlog::source_loc(loc.filename.data(), loc.line, ""), convertToSpdlog(level), message);
+}
+
+void Logger::logImpl(const std::source_location& loc, LogLevel level, std::string_view message) const {
+    if (!active) return;
+    this->logger_impl->log(spdlog::source_loc(loc.file_name(), static_cast<int>(loc.line()), loc.function_name()),
+                           convertToSpdlog(level), message);
+}
+
+spdlog::level::level_enum getLogLevelFromEnv(spdlog::level::level_enum default_level) {
     const char* env_log_level_cstr = std::getenv("LOG_LEVEL");
 
-    if (!env_log_level_cstr) return spdlog::level::info;
+    if (!env_log_level_cstr) return default_level;
     std::string env_log_level = env_log_level_cstr;
     if (env_log_level == "TRACE") {
         return spdlog::level::trace;
@@ -94,10 +156,11 @@ Logger::Logger(const std::string& name, const LogColor color) {
         console_sink->set_color(spdlog::level::debug, logger_color);
         console_sink->set_color(spdlog::level::trace, logger_color);
 #endif
-#ifdef BAGUETTE_LOCAL_MODE                              // @todo log also in trace in headless / deploy mode
-        console_sink->set_level(getLogLevelFromEnv());  // Log everything to the console in dev mode
+#ifdef BAGUETTE_LOCAL_MODE  // @todo log also in trace in headless / deploy mode
+        console_sink->set_level(getLogLevelFromEnv(spdlog::level::info));
 #else
-        console_sink->set_level(spdlog::level::warn);  // Log only warnings to the console in deploy mode
+        console_sink->set_level(
+            getLogLevelFromEnv(spdlog::level::warn));  // Log only warnings to the console in deploy mode
 #endif
         auto gui_sink = getGuiSink();
 
@@ -106,7 +169,7 @@ Logger::Logger(const std::string& name, const LogColor color) {
         // Gated behind flag because of: https://github.com/gabime/spdlog/issues/937
         if (std::getenv("BAGUETTE_ENABLE_FILE_LOGGING")) {
             constexpr size_t MAX_FILES = 20;
-            constexpr size_t MAX_FILE_SIZE = 1048576 * 5;
+            constexpr size_t MAX_FILE_SIZE = static_cast<size_t>(1048576) * 5;
 
             static std::string logger_path = getBaguetteDirectory().append("logs/baguette.log").string();
 

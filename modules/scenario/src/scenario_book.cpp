@@ -1,5 +1,5 @@
 #include "scenario/scenario_book.hpp"
-#include "common_types.hpp"
+#include "core/common_types.hpp"
 
 #include <vector>
 #include <algorithm>
@@ -7,23 +7,23 @@
 
 namespace luhsoccer::scenario::book {
 
-const auto RAND_POS_FROM_BALL = [](const std::shared_ptr<const transform::WorldModel> &, const time::TimePoint &) {
-    constexpr double MIN_DIST = 0.3;
-    constexpr double MAX_DIST = 1.0;
+// const auto RAND_POS_FROM_BALL = [](const std::shared_ptr<const transform::WorldModel>&, const time::TimePoint&) {
+//     constexpr double MIN_DIST = 0.3;
+//     constexpr double MAX_DIST = 1.0;
 
-    double angle = (double)rand() / RAND_MAX * 2 * L_PI;
+//     double angle = (double)rand() / RAND_MAX * 2 * L_PI;
 
-    double dist = (double)rand() / RAND_MAX;
-    dist = MIN_DIST + dist * (MAX_DIST - MIN_DIST);
+//     double dist = (double)rand() / RAND_MAX;
+//     dist = MIN_DIST + dist * (MAX_DIST - MIN_DIST);
 
-    return transform::Position("ball", std::cos(angle) * dist, std::sin(angle) * dist);
-};
+//     return transform::Position("ball", std::cos(angle) * dist, std::sin(angle) * dist);
+// };
 
-const auto RAND_POS_FROM_CENTRE = [](const std::shared_ptr<const transform::WorldModel> &, const time::TimePoint &) {
-    constexpr double MIN_X = -0.5;
-    constexpr double MAX_X = 0.5;
-    constexpr double MIN_Y = -0.5;
-    constexpr double MAX_Y = 0.5;
+const auto RAND_POS_FROM_CENTRE = [](const std::shared_ptr<const transform::WorldModel>&, const time::TimePoint&) {
+    constexpr double MIN_X = -2.0;
+    constexpr double MAX_X = 2.0;
+    constexpr double MIN_Y = -1.5;
+    constexpr double MAX_Y = 1.5;
 
     double x = (double)rand() / RAND_MAX;
     x = MIN_X + x * (MAX_X - MIN_X);
@@ -34,19 +34,20 @@ const auto RAND_POS_FROM_CENTRE = [](const std::shared_ptr<const transform::Worl
     return transform::Position("", x, y);
 };
 
-const Scenario ONE_OBSTACLE("one_obstacle",         //
-                            {{"", 1.0, 0.0, 0.0}},  //
-                            {{"", 0.0, 0.0, 0.0}},  //
-                            {{skills::BodSkillNames::GO_TO_POINT, ScenarioTaskData(true, {}, {{"", -1.0, 0.0, 0.0}})}});
+const Scenario ONE_OBSTACLE("one_obstacle",           //
+                            {{"", 1.0, 0.0, 0.0}},    //
+                            {{{"", 0.0, 0.0, 0.0}}},  //
+                            {{skills::GameSkillNames::GO_TO_POINT,
+                              ScenarioTaskData(true, {}, {{"", -1.0, 0.0, 0.0}})}});
 const Scenario SWITCH("switch",                                     //
                       {{"", 2.0, 0.0, 0.0}, {"", -2.0, 0.0, 0.0}},  //
                       {},                                           //
-                      {{skills::BodSkillNames::GO_TO_POINT,
+                      {{skills::GameSkillNames::GO_TO_POINT,
                         ScenarioTaskData(true,                   //
                                          {},                     //
                                          {{"", -2.0, 0.0, 0.0}}  //
                                          )},
-                       {skills::BodSkillNames::GO_TO_POINT,
+                       {skills::GameSkillNames::GO_TO_POINT,
                         ScenarioTaskData(true,                  //
                                          {},                    //
                                          {{"", 2.0, 0.0, 0.0}}  //
@@ -54,12 +55,12 @@ const Scenario SWITCH("switch",                                     //
 const Scenario SWITCH_OFFSET("switch-offset",                                //
                              {{"", 1.8, -0.3, 0.0}, {"", -1.8, -0.3, 0.0}},  //
                              {},                                             //
-                             {{skills::BodSkillNames::GO_TO_POINT,
+                             {{skills::GameSkillNames::GO_TO_POINT,
                                ScenarioTaskData(true,                   //
                                                 {},                     //
                                                 {{"", -2.0, 0.3, 0.0}}  //
                                                 )},
-                              {skills::BodSkillNames::GO_TO_POINT,
+                              {skills::GameSkillNames::GO_TO_POINT,
                                ScenarioTaskData(true,                  //
                                                 {},                    //
                                                 {{"", 2.0, 0.3, 0.0}}  //
@@ -67,17 +68,17 @@ const Scenario SWITCH_OFFSET("switch-offset",                                //
 const Scenario THREE_SWITCH("three-switch",                                                      //
                             {{"", 0.0, 1.0, 0.0}, {"", 0.7, -0.7, 0.0}, {"", -0.7, -0.7, 0.0}},  //
                             {},                                                                  //
-                            {{skills::BodSkillNames::GO_TO_POINT,
+                            {{skills::GameSkillNames::GO_TO_POINT,
                               ScenarioTaskData(true,                   //
                                                {},                     //
                                                {{"", 0.0, -1.0, 0.0}}  //
                                                )},
-                             {skills::BodSkillNames::GO_TO_POINT,
+                             {skills::GameSkillNames::GO_TO_POINT,
                               ScenarioTaskData(true,                   //
                                                {},                     //
                                                {{"", -0.7, 0.7, 0.0}}  //
                                                )},
-                             {skills::BodSkillNames::GO_TO_POINT,
+                             {skills::GameSkillNames::GO_TO_POINT,
                               ScenarioTaskData(true,                  //
                                                {},                    //
                                                {{"", 0.7, 0.7, 0.0}}  //
@@ -90,32 +91,32 @@ const Scenario SIX_SWITCH("six-switch",  //
                            {"", -0.7, 0.7, 0.0},
                            {"", 0.7, 0.7, 0.0}},  //
                           {},                     //
-                          {{skills::BodSkillNames::GO_TO_POINT,
+                          {{skills::GameSkillNames::GO_TO_POINT,
                             ScenarioTaskData(true,                   //
                                              {},                     //
                                              {{"", 0.0, -1.0, 0.0}}  //
                                              )},
-                           {skills::BodSkillNames::GO_TO_POINT,
+                           {skills::GameSkillNames::GO_TO_POINT,
                             ScenarioTaskData(true,                   //
                                              {},                     //
                                              {{"", -0.7, 0.7, 0.0}}  //
                                              )},
-                           {skills::BodSkillNames::GO_TO_POINT,
+                           {skills::GameSkillNames::GO_TO_POINT,
                             ScenarioTaskData(true,                  //
                                              {},                    //
                                              {{"", 0.7, 0.7, 0.0}}  //
                                              )},
-                           {skills::BodSkillNames::GO_TO_POINT,
+                           {skills::GameSkillNames::GO_TO_POINT,
                             ScenarioTaskData(true,                  //
                                              {},                    //
                                              {{"", 0.0, 1.0, 0.0}}  //
                                              )},
-                           {skills::BodSkillNames::GO_TO_POINT,
+                           {skills::GameSkillNames::GO_TO_POINT,
                             ScenarioTaskData(true,                   //
                                              {},                     //
                                              {{"", 0.7, -0.7, 0.0}}  //
                                              )},
-                           {skills::BodSkillNames::GO_TO_POINT,
+                           {skills::GameSkillNames::GO_TO_POINT,
                             ScenarioTaskData(true,                    //
                                              {},                      //
                                              {{"", -0.7, -0.7, 0.0}}  //
@@ -130,42 +131,42 @@ const Scenario EIGHT_SWITCH("eight-switch",  //
                              {"", 1.0, 0.0, 0.0},
                              {"", -1.0, 0.0, 0.0}},  //
                             {},                      //
-                            {{skills::BodSkillNames::GO_TO_POINT,
+                            {{skills::GameSkillNames::GO_TO_POINT,
                               ScenarioTaskData(true,                   //
                                                {},                     //
                                                {{"", 0.0, -1.0, 0.0}}  //
                                                )},
-                             {skills::BodSkillNames::GO_TO_POINT,
+                             {skills::GameSkillNames::GO_TO_POINT,
                               ScenarioTaskData(true,                   //
                                                {},                     //
                                                {{"", -0.7, 0.7, 0.0}}  //
                                                )},
-                             {skills::BodSkillNames::GO_TO_POINT,
+                             {skills::GameSkillNames::GO_TO_POINT,
                               ScenarioTaskData(true,                  //
                                                {},                    //
                                                {{"", 0.7, 0.7, 0.0}}  //
                                                )},
-                             {skills::BodSkillNames::GO_TO_POINT,
+                             {skills::GameSkillNames::GO_TO_POINT,
                               ScenarioTaskData(true,                  //
                                                {},                    //
                                                {{"", 0.0, 1.0, 0.0}}  //
                                                )},
-                             {skills::BodSkillNames::GO_TO_POINT,
+                             {skills::GameSkillNames::GO_TO_POINT,
                               ScenarioTaskData(true,                   //
                                                {},                     //
                                                {{"", 0.7, -0.7, 0.0}}  //
                                                )},
-                             {skills::BodSkillNames::GO_TO_POINT,
+                             {skills::GameSkillNames::GO_TO_POINT,
                               ScenarioTaskData(true,                    //
                                                {},                      //
                                                {{"", -0.7, -0.7, 0.0}}  //
                                                )},
-                             {skills::BodSkillNames::GO_TO_POINT,
+                             {skills::GameSkillNames::GO_TO_POINT,
                               ScenarioTaskData(true,                   //
                                                {},                     //
                                                {{"", -1.0, 0.0, 0.0}}  //
                                                )},
-                             {skills::BodSkillNames::GO_TO_POINT,
+                             {skills::GameSkillNames::GO_TO_POINT,
                               ScenarioTaskData(true,                  //
                                                {},                    //
                                                {{"", 1.0, 0.0, 0.0}}  //
@@ -173,14 +174,14 @@ const Scenario EIGHT_SWITCH("eight-switch",  //
 
 const Scenario MULTI_OBSTACLE("multi-obstacle",        //
                               {{"", -3.0, 0.0, 0.0}},  //
-                              {{"", -1.0, 0.7, 0.0},
-                               {"", -1.5, -0.15, 0.0},
-                               {"", -1.5, 0.2, 0.0},
-                               {"", 0.0, 0.1, 0.0},
-                               {"", 0.0, -0.3, 0.0},
-                               {"", 0.7, 0.2, 0.0},
-                               {"", 1.5, 0.7, 0.0}},  //
-                              {{skills::BodSkillNames::GO_TO_POINT,
+                              {{{"", -1.0, 0.7, 0.0}},
+                               {{"", -1.5, -0.15, 0.0}},
+                               {{"", -1.5, 0.2, 0.0}},
+                               {{"", 0.0, 0.1, 0.0}},
+                               {{"", 0.0, -0.3, 0.0}},
+                               {{"", 0.7, 0.2, 0.0}},
+                               {{"", 1.5, 0.7, 0.0}}},  //
+                              {{skills::GameSkillNames::GO_TO_POINT,
                                 ScenarioTaskData(true,                  //
                                                  {},                    //
                                                  {{"", 3.0, 0.0, 0.0}}  //
@@ -188,12 +189,12 @@ const Scenario MULTI_OBSTACLE("multi-obstacle",        //
 const Scenario CROSS("cross",                                            //
                      {{"", -2.0, 0.0, 0.0}, {"", 0.0, -2.0, L_PI / 2}},  //
                      {},                                                 //
-                     {{skills::BodSkillNames::GO_TO_POINT_ORIGINAL,
+                     {{skills::GameSkillNames::GO_TO_POINT,
                        ScenarioTaskData(true,                  //
                                         {},                    //
                                         {{"", 2.0, 0.0, 0.0}}  //
                                         )},
-                      {skills::BodSkillNames::GO_TO_POINT_ORIGINAL,
+                      {skills::GameSkillNames::GO_TO_POINT,
                        ScenarioTaskData(true,                       //
                                         {},                         //
                                         {{"", 0.0, 2.0, L_PI / 2}}  //
@@ -235,7 +236,8 @@ const std::vector<std::pair<double, double>> RANDOM_POSES = {{
 
 //     return transform::Position("", x, y);
 // };
-const auto RAND_POS = [](const std::shared_ptr<const transform::WorldModel> &, const time::TimePoint &) {
+const auto RAND_POS = [](const std::shared_ptr<const transform::WorldModel>&,
+                         const time::TimePoint&) -> transform::Position {
     static size_t num_pos = 0;
     if (num_pos >= RANDOM_POSES.size()) {
         num_pos = 0;
@@ -243,73 +245,117 @@ const auto RAND_POS = [](const std::shared_ptr<const transform::WorldModel> &, c
 
     transform::Position pos("", RANDOM_POSES[num_pos].first, RANDOM_POSES[num_pos].second);
     num_pos++;
-    return pos;
+    return {pos};
 };
-const Scenario MULTI_OBSTACLE_RANDOM("multi-obstacle-random",                                                   //
-                                     {{"", -3.0, 0.0}},                                                         //
-                                     {{RAND_POS}, {RAND_POS}, {RAND_POS}, {RAND_POS}, {RAND_POS}, {RAND_POS}},  //
-                                     {{skills::BodSkillNames::GO_TO_POINT,
-                                       ScenarioTaskData(true,                  //
-                                                        {},                    //
-                                                        {{"", 3.0, 0.0, 0.0}}  //
-                                                        )}});
+const Scenario MULTI_OBSTACLE_RANDOM(
+    "multi-obstacle-random",                                                               //
+    {{"", -3.0, 0.0}},                                                                     //
+    {{{RAND_POS}}, {{RAND_POS}}, {{RAND_POS}}, {{RAND_POS}}, {{RAND_POS}}, {{RAND_POS}}},  //
+    {{skills::GameSkillNames::GO_TO_POINT,
+      ScenarioTaskData(true,                  //
+                       {},                    //
+                       {{"", 3.0, 0.0, 0.0}}  //
+                       )}});
 
 const Scenario OFF_CROSS("off-cross",  //
                          {{"", 1.0, 0.5, 0.0}, {"", 1.01, -0.741, 0.15 * L_PI}, {"", 2.004, -1.862, 0.3 * L_PI}},
-                         {{"", 2.5, -0.81, 1.3 * L_PI},
-                          {"", 2.77, -1.035, 1.3 * L_PI},
-                          {"", 3.021, -1.287, 1.3 * L_PI},
-                          {"", 2.5, 0.5, 1.0 * L_PI}},
-                         {{skills::BodSkillNames::GO_TO_POINT,
+                         {{{"", 2.5, -0.81, 1.3 * L_PI}},
+                          {{"", 2.77, -1.035, 1.3 * L_PI}},
+                          {{"", 3.021, -1.287, 1.3 * L_PI}},
+                          {{"", 2.5, 0.5, 1.0 * L_PI}}},
+                         {{skills::GameSkillNames::GO_TO_POINT,
                            ScenarioTaskData(true,                             //
                                             {},                               //
                                             {{"", 3.21, -2.03, 0.25 * L_PI}}  //
                                             )},
-                          {skills::BodSkillNames::GO_TO_POINT,
+                          {skills::GameSkillNames::GO_TO_POINT,
                            ScenarioTaskData(true,                              //
                                             {},                                //
                                             {{"", 3.175, 0.499, -0.1 * L_PI}}  //
                                             )},
-                          {skills::BodSkillNames::GO_TO_POINT,
+                          {skills::GameSkillNames::GO_TO_POINT,
                            ScenarioTaskData(true,                              //
                                             {},                                //
                                             {{"", 1.058, 1.754, -0.3 * L_PI}}  //
                                             )}});
 
-const Scenario OFF_CROSS_ENEMY("off-cross2",  //
-                               {{"", 1.0, 0.5, 0.0},
-                                // {"", 1.01, -0.741, 0.15 * L_PI},
-                                {"", 2.004, -1.862, 0.3 * L_PI},
-                                {"", 1.0, 0.5, 0.0},
-                                // {"", 3.0, -0.741, 0.15 * L_PI},
-                                {"", 1.0, -1.862, 0.3 * L_PI}},
-                               {},
-                               {
-                                   {skills::BodSkillNames::GO_TO_POINT,
-                                    ScenarioTaskData(true,                             //
-                                                     {},                               //
-                                                     {{"", 3.21, -2.03, 0.25 * L_PI}}  //
-                                                     )},
-                                   //  {skills::BodSkillNames::GO_TO_POINT,
-                                   //   ScenarioTaskData(true,                              //
-                                   //                    {},                                //
-                                   //                    {{"", 3.175, 0.499, -0.1 * L_PI}}  //
-                                   //                    )},
-                                   {skills::BodSkillNames::GO_TO_POINT,
-                                    ScenarioTaskData(true,                              //
-                                                     {},                                //
-                                                     {{"", 1.358, 1.754, -0.3 * L_PI}}  //
-                                                     )},
-                                   {skills::BodSkillNames::MARK_ENEMY_TO_BALL,
-                                    ScenarioTaskData(false,  //
-                                                     {{0, Team::ALLY}})},
-                                   //  {skills::BodSkillNames::MARK_ENEMY_TO_GOAL,
-                                   //   ScenarioTaskData(false,  //
-                                   //                    {{1, Team::ALLY}})},
-                                   {skills::BodSkillNames::MARK_ENEMY_TO_BALL,
-                                    ScenarioTaskData(false,  //
-                                                     {{1, Team::ALLY}})},
-                               });
+// const Scenario OFF_CROSS_ENEMY("off-cross2",  //
+//                                {{"", 1.0, 0.5, 0.0},
+//                                 // {"", 1.01, -0.741, 0.15 * L_PI},
+//                                 {"", 2.004, -1.862, 0.3 * L_PI},
+//                                 {"", 1.0, 0.5, 0.0},
+//                                 // {"", 3.0, -0.741, 0.15 * L_PI},
+//                                 {"", 1.0, -1.862, 0.3 * L_PI}},
+//                                {},
+//                                {
+//                                    {skills::GameSkillNames::GO_TO_POINT,
+//                                     ScenarioTaskData(true,                             //
+//                                                      {},                               //
+//                                                      {{"", 3.21, -2.03, 0.25 * L_PI}}  //
+//                                                      )},
+//                                    //  {skills::GameSkillNames::GO_TO_POINT,
+//                                    //   ScenarioTaskData(true,                              //
+//                                    //                    {},                                //
+//                                    //                    {{"", 3.175, 0.499, -0.1 * L_PI}}  //
+//                                    //                    )},
+//                                    {skills::GameSkillNames::GO_TO_POINT,
+//                                     ScenarioTaskData(true,                              //
+//                                                      {},                                //
+//                                                      {{"", 1.358, 1.754, -0.3 * L_PI}}  //
+//                                                      )},
+//                                    {skills::GameSkillNames::MARK_ENEMY_TO_BALL,
+//                                     ScenarioTaskData(false,  //
+//                                                      {{0, Team::ALLY}})},
+//                                    //  {skills::GameSkillNames::MARK_ENEMY_TO_GOAL,
+//                                    //   ScenarioTaskData(false,  //
+//                                    //                    {{1, Team::ALLY}})},
+//                                    {skills::GameSkillNames::MARK_ENEMY_TO_BALL,
+//                                     ScenarioTaskData(false,  //
+//                                                      {{1, Team::ALLY}})},
+//                                });
+
+// const Scenario OFF_CROSS_STATIC("off-cross-static",  //
+//                                 {{"", 1.0, 0.5, 0.0}, {"", 1.0, -1.862, 0.3 * L_PI}},
+//                                 {
+//                                     {{{0.0, {"", 1.0, 0.5, 0.0}}, {3.0, {"", 3.21, -2.03, 0.25 * L_PI}}}},
+//                                     {{{0.0, {"", 2.004, -1.862, 0.3 * L_PI}},
+//                                       {1.5, {"", 1.17, -0.586, 0.0}},
+//                                       {3.0, {"", 1.358, 1.754, -0.3 * L_PI}}}},
+//                                 },
+//                                 {
+//                                     {skills::GameSkillNames::MARK_ENEMY_TO_BALL,
+//                                      ScenarioTaskData(false,  //
+//                                                       {{0, Team::ENEMY}})},
+//                                     //  {skills::GameSkillNames::MARK_ENEMY_TO_GOAL,
+//                                     //   ScenarioTaskData(false,  //
+//                                     //                    {{1, Team::ALLY}})},
+//                                     {skills::GameSkillNames::MARK_ENEMY_TO_BALL,
+//                                      ScenarioTaskData(false,  //
+//                                                       {{1, Team::ENEMY}})},
+//                                 });
+// const Scenario OFF_CROSS_STATIC_ALLY(
+//     "off-cross-static-ally",  //
+//     {{"", 1.0, 0.5, 0.0}, {"", 1.0, -1.862, 0.3 * L_PI}, {"", 1.2, 0.5, 0.0}, {"", 2.004, -1.862, 0.3 * L_PI}}, {},
+//     {
+//         {skills::GameSkillNames::MARK_ENEMY_TO_BALL,
+//          ScenarioTaskData(false,  //
+//                           {{2, Team::ALLY}})},
+//         {skills::GameSkillNames::MARK_ENEMY_TO_BALL,
+//          ScenarioTaskData(false,  //
+//                           {{3, Team::ALLY}})},
+//         {skills::GameSkillNames::MOVE_CONSTANT2,
+//          ScenarioTaskData(true,                                                              //
+//                           {},                                                                //
+//                           {{"", 3.21, -2.03, 0.25 * L_PI}, {"", 3.21, -2.03, 0.25 * L_PI}},  //
+//                           {},                                                                //
+//                           {3.0, 0.0})},
+//         {skills::GameSkillNames::MOVE_CONSTANT2,
+//          ScenarioTaskData(true,                                                        //
+//                           {},                                                          //
+//                           {{"", 1.17, -0.586, 0.0}, {"", 1.358, 1.754, -0.3 * L_PI}},  //
+//                           {},                                                          //
+//                           {1.5, 1.5})},
+//     });
 
 constexpr double MIN_Y = -1.0;
 constexpr double MAX_Y = 1.0;
@@ -317,7 +363,7 @@ constexpr double X_START = -1.0;
 constexpr double X_END = 1.0;
 constexpr double NUM_ROBOTS = 6;
 
-const auto RAND_POS_SORT = [](const std::shared_ptr<const transform::WorldModel> &, const time::TimePoint &) {
+const auto RAND_POS_SORT = [](const std::shared_ptr<const transform::WorldModel>&, const time::TimePoint&) {
     static std::mutex mtx;
     const std::lock_guard<std::mutex> lock(mtx);
     static std::vector<int> numbers;
@@ -341,32 +387,32 @@ const Scenario RANDOM_SORT(
     {{RAND_POS_SORT}, {RAND_POS_SORT}, {RAND_POS_SORT}, {RAND_POS_SORT}, {RAND_POS_SORT}, {RAND_POS_SORT}},  //
     {},                                                                                                      //
     {
-        {skills::BodSkillNames::GO_TO_POINT,
+        {skills::GameSkillNames::GO_TO_POINT,
          ScenarioTaskData(true,                                                                   //
                           {},                                                                     //
                           {{"", X_END, X_START + (X_END - X_START) / (NUM_ROBOTS - 1) * 0, 0.0}}  //
                           )},
-        {skills::BodSkillNames::GO_TO_POINT,
+        {skills::GameSkillNames::GO_TO_POINT,
          ScenarioTaskData(true,                                                                   //
                           {},                                                                     //
                           {{"", X_END, X_START + (X_END - X_START) / (NUM_ROBOTS - 1) * 1, 0.0}}  //
                           )},
-        {skills::BodSkillNames::GO_TO_POINT,
+        {skills::GameSkillNames::GO_TO_POINT,
          ScenarioTaskData(true,                                                                   //
                           {},                                                                     //
                           {{"", X_END, X_START + (X_END - X_START) / (NUM_ROBOTS - 1) * 2, 0.0}}  //
                           )},
-        {skills::BodSkillNames::GO_TO_POINT,
+        {skills::GameSkillNames::GO_TO_POINT,
          ScenarioTaskData(true,                                                                   //
                           {},                                                                     //
                           {{"", X_END, X_START + (X_END - X_START) / (NUM_ROBOTS - 1) * 3, 0.0}}  //
                           )},
-        {skills::BodSkillNames::GO_TO_POINT,
+        {skills::GameSkillNames::GO_TO_POINT,
          ScenarioTaskData(true,                                                                   //
                           {},                                                                     //
                           {{"", X_END, X_START + (X_END - X_START) / (NUM_ROBOTS - 1) * 4, 0.0}}  //
                           )},
-        {skills::BodSkillNames::GO_TO_POINT,
+        {skills::GameSkillNames::GO_TO_POINT,
          ScenarioTaskData(true,                                                                   //
                           {},                                                                     //
                           {{"", X_END, X_START + (X_END - X_START) / (NUM_ROBOTS - 1) * 5, 0.0}}  //
@@ -375,13 +421,13 @@ const Scenario RANDOM_SORT(
 
 const Scenario MULTI_OBSTACLE_REAL("multi_obstacle_real",             //
                                    {{"", 1.6694, -2.143, L_PI / 2}},  //
-                                   {{"", -1.0, 0.7, 0.0},
-                                    {"", 1.46, -0.2, 0.0},
-                                    {"", 0.0, 0.1, 0.0},
-                                    {"", 0.0, -0.3, 0.0},
-                                    {"", 0.7, 0.2, 0.0},
-                                    {"", 1.5, 0.7, 0.0}},  //
-                                   {{skills::BodSkillNames::GO_TO_POINT,
+                                   {{{"", -1.0, 0.7, 0.0}},
+                                    {{"", 1.46, -0.2, 0.0}},
+                                    {{"", 0.0, 0.1, 0.0}},
+                                    {{"", 0.0, -0.3, 0.0}},
+                                    {{"", 0.7, 0.2, 0.0}},
+                                    {{"", 1.5, 0.7, 0.0}}},  //
+                                   {{skills::GameSkillNames::GO_TO_POINT,
                                      ScenarioTaskData(true,                  //
                                                       {},                    //
                                                       {{"", 3.0, 0.0, 0.0}}  //
@@ -395,44 +441,148 @@ const Scenario DIVB_SETUP{"DivB-Setup",
                            {"", -3.15, -2.85, L_PI / 2},
                            {"", -2.85, -2.85, L_PI / 2}},
                           {//
-                           {"", 4.35, -2.85, L_PI / 2},
-                           {"", 4.05, -2.85, L_PI / 2},
-                           {"", 3.75, -2.85, L_PI / 2},
-                           {"", 3.45, -2.85, L_PI / 2},
-                           {"", 3.15, -2.85, L_PI / 2},
-                           {"", 2.85, -2.85, L_PI / 2}},
+                           {{"", 4.35, -2.85, L_PI / 2}},
+                           {{"", 4.05, -2.85, L_PI / 2}},
+                           {{"", 3.75, -2.85, L_PI / 2}},
+                           {{"", 3.45, -2.85, L_PI / 2}},
+                           {{"", 3.15, -2.85, L_PI / 2}},
+                           {{"", 2.85, -2.85, L_PI / 2}}},
                           {}};
 
-const Scenario PASS_AND_RECEIVE{
-    "PassAndReceive",
-    {{RAND_POS_FROM_BALL}, {RAND_POS_FROM_CENTRE}},
-    {},
-    {{skills::BodSkillNames::PASS_BALL_TO_ROBOT, ScenarioTaskData(true, {{1, Team::ALLY}}, {}, {}, {})},
-     {skills::BodSkillNames::RECEIVE_BALL, ScenarioTaskData(true, {}, {})}},
-    true};
+const Scenario DIVA_SETUP{"DivA-Setup",
+                          {
+                              //
+                              {"", -4.35, -4.35, L_PI / 2},
+                              {"", -4.05, -4.35, L_PI / 2},
+                              {"", -3.75, -4.35, L_PI / 2},
+                              {"", -3.45, -4.35, L_PI / 2},
+                              {"", -3.15, -4.35, L_PI / 2},
+                              {"", -2.85, -4.35, L_PI / 2},
+                              {"", -2.55, -4.35, L_PI / 2},
+                              {"", -2.25, -4.35, L_PI / 2},
+                              {"", -1.95, -4.35, L_PI / 2},
+                              {"", -1.65, -4.35, L_PI / 2},
+                              {"", -1.35, -4.35, L_PI / 2},
+                          },
+                          {//
+                           {{"", 4.35, -4.35, L_PI / 2}},
+                           {{"", 4.05, -4.35, L_PI / 2}},
+                           {{"", 3.75, -4.35, L_PI / 2}},
+                           {{"", 3.45, -4.35, L_PI / 2}},
+                           {{"", 3.15, -4.35, L_PI / 2}},
+                           {{"", 2.85, -4.35, L_PI / 2}},
+                           {{"", 2.55, -4.35, L_PI / 2}},
+                           {{"", 2.25, -4.35, L_PI / 2}},
+                           {{"", 1.95, -4.35, L_PI / 2}},
+                           {{"", 1.65, -4.35, L_PI / 2}},
+                           {{"", 1.35, -4.35, L_PI / 2}}},
+                          {}};
 
-const Scenario WALL_AT_PENALTY_AREA(
-    "WallAtPenaltyArea",                                                  //
-    {{"", -3.0, 0.0, 0.0}, {"", -3.0, -0.5, 0.0}, {"", -3.0, 0.5, 0.0}},  //
-    {{"", -0.5, 0.0, 0.0}},                                               //
-    {{skills::BodSkillNames::WALL_AT_PENALTY_AREA,
-      ScenarioTaskData(
-          true,
-          {{0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}},
-          {}, {0, 3})},
-     {skills::BodSkillNames::WALL_AT_PENALTY_AREA,
-      ScenarioTaskData(
-          true,
-          {{0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}},
-          {}, {1, 3})},
-     {skills::BodSkillNames::WALL_AT_PENALTY_AREA,
-      ScenarioTaskData(
-          true,
-          {{0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}},
-          {}, {2, 3})}},
-    true);
+// const Scenario PASS_AND_RECEIVE{
+//     "PassAndReceive",
+//     {{RAND_POS_FROM_BALL}, {RAND_POS_FROM_CENTRE}},
+//     {},
+//     {{skills::GameSkillNames::KICK_BALL_THROUGH_TARGET, ScenarioTaskData(true, {{1, Team::ALLY}}, {}, {}, {})},
+//      {skills::GameSkillNames::INTERCEPT_BALL, ScenarioTaskData(true, {}, {})}},
+//     true};
 
-const std::map<std::string, const Scenario &> BOOK{
+// const Scenario WALL_AT_PENALTY_AREA(
+//     "WallAtPenaltyArea",                                                  //
+//     {{"", -3.0, 0.0, 0.0}, {"", -3.0, -0.5, 0.0}, {"", -3.0, 0.5, 0.0}},  //
+//     {{{"", -0.5, 0.0, 0.0}}},                                             //
+//     {{skills::GameSkillNames::WALL_AT_PENALTY_AREA,
+//       ScenarioTaskData(
+//           true,
+//           {{0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0,
+//           Team::ENEMY}},
+//           {}, {0, 3})},
+//      {skills::GameSkillNames::WALL_AT_PENALTY_AREA,
+//       ScenarioTaskData(
+//           true,
+//           {{0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0,
+//           Team::ENEMY}},
+//           {}, {1, 3})},
+//      {skills::GameSkillNames::WALL_AT_PENALTY_AREA,
+//       ScenarioTaskData(
+//           true,
+//           {{0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0, Team::ENEMY}, {0,
+//           Team::ENEMY}},
+//           {}, {2, 3})}},
+//     true);
+
+const Scenario DIVC_SETUP{"DivC-Setup",
+                          {
+                              //
+                              {"", -0.3, -0.9, L_PI / 2},
+                          },
+                          {//
+                           {{"", 0.3, -0.9, L_PI / 2}}},
+                          {}};
+
+const Scenario TECHNICAL_CHALLENGE_2024{"TechnicalChallenge2024",
+                                        {
+                                            //
+                                            {"", -1.0, 0.5, 0.0},
+                                            {"", -1.0, 0.25, 0.0},
+                                            {"", -1.0, -0.25, 0.0},
+                                            {"", -1.0, -0.5, 0.0},
+                                        },
+                                        {//
+                                         {{"", 1.0, 0.5, 0.0}},
+                                         {{"", 1.0, 0.25, 0.0}},
+                                         {{"", 1.0, -0.25, 0.0}},
+                                         {{"", 1.0, -0.5, 0.0}}},
+                                        {}};
+
+const Scenario MULTI_OBSTACLE_DIVA("multi-obstacle-divA",   //
+                                   {{"", -4.0, 0.0, 0.0}},  //
+                                   {{{RAND_POS_FROM_CENTRE}},
+                                    {{RAND_POS_FROM_CENTRE}},
+                                    {{RAND_POS_FROM_CENTRE}},
+                                    {{RAND_POS_FROM_CENTRE}},
+                                    {{RAND_POS_FROM_CENTRE}},
+                                    {{RAND_POS_FROM_CENTRE}},
+                                    {{RAND_POS_FROM_CENTRE}},
+                                    {{RAND_POS_FROM_CENTRE}},
+                                    {{RAND_POS_FROM_CENTRE}},
+                                    {{RAND_POS_FROM_CENTRE}},
+                                    {{RAND_POS_FROM_CENTRE}}},  //
+                                   {{skills::GameSkillNames::GO_TO_POINT,
+                                     ScenarioTaskData(true,                  //
+                                                      {},                    //
+                                                      {{"", 4.0, 0.0, 0.0}}  //
+                                                      )}});
+
+const Scenario MULTI_OBSTACLE_EXTREME("multi-obstacle-extreme",  //
+                                      {{"", -4.0, 0.0, 0.0},
+                                       {RAND_POS_FROM_CENTRE},
+                                       {RAND_POS_FROM_CENTRE},
+                                       {RAND_POS_FROM_CENTRE},
+                                       {RAND_POS_FROM_CENTRE},
+                                       {RAND_POS_FROM_CENTRE},
+                                       {RAND_POS_FROM_CENTRE},
+                                       {RAND_POS_FROM_CENTRE},
+                                       {RAND_POS_FROM_CENTRE},
+                                       {RAND_POS_FROM_CENTRE},
+                                       {RAND_POS_FROM_CENTRE}},  //
+                                      {{{RAND_POS_FROM_CENTRE}},
+                                       {{RAND_POS_FROM_CENTRE}},
+                                       {{RAND_POS_FROM_CENTRE}},
+                                       {{RAND_POS_FROM_CENTRE}},
+                                       {{RAND_POS_FROM_CENTRE}},
+                                       {{RAND_POS_FROM_CENTRE}},
+                                       {{RAND_POS_FROM_CENTRE}},
+                                       {{RAND_POS_FROM_CENTRE}},
+                                       {{RAND_POS_FROM_CENTRE}},
+                                       {{RAND_POS_FROM_CENTRE}},
+                                       {{RAND_POS_FROM_CENTRE}}},  //
+                                      {{skills::GameSkillNames::GO_TO_POINT,
+                                        ScenarioTaskData(true,                  //
+                                                         {},                    //
+                                                         {{"", 4.0, 0.0, 0.0}}  //
+                                                         )}});
+
+const std::map<std::string, const Scenario&> BOOK{
     {ONE_OBSTACLE.getName(), ONE_OBSTACLE},
     {SWITCH.getName(), SWITCH},
     {SWITCH_OFFSET.getName(), SWITCH_OFFSET},
@@ -444,11 +594,18 @@ const std::map<std::string, const Scenario &> BOOK{
     {CROSS.getName(), CROSS},
     {MULTI_OBSTACLE_RANDOM.getName(), MULTI_OBSTACLE_RANDOM},
     {OFF_CROSS.getName(), OFF_CROSS},
-    {OFF_CROSS_ENEMY.getName(), OFF_CROSS_ENEMY},
+    //   {OFF_CROSS_ENEMY.getName(), OFF_CROSS_ENEMY},
     {RANDOM_SORT.getName(), RANDOM_SORT},
     {DIVB_SETUP.getName(), DIVB_SETUP},
-    {PASS_AND_RECEIVE.getName(), PASS_AND_RECEIVE},
-    {WALL_AT_PENALTY_AREA.getName(), WALL_AT_PENALTY_AREA},
+    {DIVA_SETUP.getName(), DIVA_SETUP},
+    {DIVC_SETUP.getName(), DIVC_SETUP},
+    {TECHNICAL_CHALLENGE_2024.getName(), TECHNICAL_CHALLENGE_2024},
+    {MULTI_OBSTACLE_DIVA.getName(), MULTI_OBSTACLE_DIVA},
+    {MULTI_OBSTACLE_EXTREME.getName(), MULTI_OBSTACLE_EXTREME},
+    //   {PASS_AND_RECEIVE.getName(), PASS_AND_RECEIVE},
+    //   {WALL_AT_PENALTY_AREA.getName(), WALL_AT_PENALTY_AREA},
+    //   {OFF_CROSS_STATIC.getName(), OFF_CROSS_STATIC},
+    //   {OFF_CROSS_STATIC_ALLY.getName(), OFF_CROSS_STATIC_ALLY}
 };
 
 }  // namespace luhsoccer::scenario::book

@@ -1,7 +1,8 @@
 #include "robot_interface/robot_interface_types.hpp"
-#include "visit.hpp"
+#include "core/visit.hpp"
 namespace luhsoccer::robot_interface {
 
+/* TODO reenable
 std::ostream& operator<<(std::ostream& os, const RobotFeedback& feedback) {
     os << fmt::format("Feedback from time {}:", feedback.time_stamp) << std::endl;
     if (feedback.has_ball.has_value()) os << "has_ball: " << feedback.has_ball.value() << std::endl;
@@ -92,6 +93,6 @@ std::ostream& operator<<(std::ostream& os, const RobotCommand& command) {
         os << std::endl;
     }
     return os;
-}
+} */
 
 }  // namespace luhsoccer::robot_interface

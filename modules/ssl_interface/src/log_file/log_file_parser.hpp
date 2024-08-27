@@ -1,14 +1,11 @@
 #pragma once
 
 #include <array>
-#include <fstream>
 #include <optional>
-#include <google/protobuf/io/gzip_stream.h>
-#include <google/protobuf/io/zero_copy_stream_impl.h>
+#include "boost/iostreams/filtering_streambuf.hpp"
 #include "logger/logger.hpp"
 
 namespace luhsoccer::ssl_interface {
-
 // dervied from https://stackoverflow.com/a/4956493
 template <typename T>
 T swapEndian(T u) {
@@ -58,31 +55,14 @@ class LogFileParser {
 
    private:
     template <typename T>
-    std::optional<const T*> next() {
-        const auto ptr = dataAvailable(sizeof(T));
-        if (!ptr) {
-            return std::nullopt;
-        }
-        return std::make_optional(static_cast<const T*>(ptr.value()));
-    }
+    const T* next();
 
-    std::optional<const char*> next(int bytes) {
-        const auto ptr = dataAvailable(bytes);
-        if (!ptr) {
-            return std::nullopt;
-        }
-        return std::make_optional(static_cast<const char*>(ptr.value()));
-    }
-    std::optional<const void*> dataAvailable(int min_size = 1);
+    const char* next(int bytes);
 
-    std::ifstream file_input;
-    google::protobuf::io::IstreamInputStream i_file_input_stream;
-    google::protobuf::io::GzipInputStream stream;
-    int chunk_size{0};
-    int current_offset{0};
+    const void* dataAvailable(int min_size = 1);
+
+    boost::iostreams::filtering_streambuf<boost::iostreams::input> stream;
     std::vector<char> data_buffer;
-    const char* chunk_ptr = nullptr;
     logger::Logger logger{"log_file_parser"};
 };
-
 }  // namespace luhsoccer::ssl_interface

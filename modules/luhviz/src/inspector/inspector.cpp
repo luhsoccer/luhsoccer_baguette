@@ -10,13 +10,16 @@ void Inspector::init() {
     // TODO: on exit, save the disabled namespaces
 }
 
-void Inspector::render() {
-    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoNavFocus |
-                                    ImGuiWindowFlags_NoBringToFrontOnFocus | ImGuiWindowFlags_NoScrollbar |
-                                    ImGuiWindowFlags_NoScrollWithMouse;
+void Inspector::render(bool& open) {
+    if (!open) {
+        return;
+    }
+
+    ImGuiWindowFlags window_flags =
+        ImGuiWindowFlags_NoCollapse | ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoBringToFrontOnFocus;
 
     ImGui::PushStyleColor(ImGuiCol_Text, this->data_proxy.accent_text_color);
-    ImGui::Begin("Inspector", nullptr, window_flags);
+    ImGui::Begin("Inspector", &open, window_flags);
     ImGui::PopStyleColor();
 
     // display a tree for every marker namespace
@@ -132,7 +135,9 @@ void Inspector::createMarkerNs(const marker::LuhvizMarkers& luhviz_markers) {
     }
 }
 
-void Inspector::filterMarkers(marker::LuhvizMarkers& luhviz_markers) const {
+void Inspector::filterMarkers(marker::LuhvizMarkers& luhviz_markers, bool inspector_visible) const {
+    if (!inspector_visible) return;
+
     // remove markers from maps if they are not set enabled via checkboxes
     for (const auto& ns : this->marker_ns) {
         for (const auto& info : ns.second->marker_infos) {

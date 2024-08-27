@@ -8,6 +8,7 @@
 #include "game_data_provider/game_data_provider.hpp"
 
 #include "config_provider/config_store_main.hpp"
+#include "config/observer_config.hpp"
 
 #include "observer/goal_probability/goal_probability.hpp"
 #include "observer/pass_probability/pass_probability.hpp"
@@ -50,7 +51,7 @@ std::optional<BallHolder> ballPosessionPenaltyArea(const RobotIdentifier goalie,
 }
 }  // namespace
 
-std::optional<double> calculateGoalProbability(const transform::RobotHandle& handle, const time::TimePoint time) {
+double calculateGoalProbability(const transform::RobotHandle& handle, const time::TimePoint time) {
     return calculateGoalProbability(handle.getPosition(), handle.getTeam(), handle.getWorldModel().lock(), time);
 }
 
@@ -103,9 +104,12 @@ std::optional<BallHolder> calculateBallPosession(const game_data_provider::GameD
     }
 
     // check if the ball can be in any team's penalty area
-    if (ball_pos->y() < 1.0 && ball_pos->y() > -1.0) {
+    const double penaly_area_width = world_model_ptr->getFieldData().penalty_area_width / 2;
+    if (ball_pos->y() < penaly_area_width && ball_pos->y() > -penaly_area_width) {
         // ALLY Penalty area
-        if (ball_pos->x() < -3.5) {
+        const double penalty_area_begin =
+            world_model_ptr->getFieldData().size.x() + world_model_ptr->getFieldData().penalty_area_depth;
+        if (ball_pos->x() < -penalty_area_begin) {
             RobotIdentifier ally_goalie = gdp.getGoalie();
 
             const auto& ally_robots = world_model_ptr->getVisibleRobots<Team::ALLY>();
@@ -114,7 +118,7 @@ std::optional<BallHolder> calculateBallPosession(const game_data_provider::GameD
         }
 
         // ENEMY penalty area
-        if (ball_pos->x() > 3.5) {
+        if (ball_pos->x() > penalty_area_begin) {
             RobotIdentifier enemy_goalie = gdp.getEnemyGoalie();
 
             const auto& enemy_robots = world_model_ptr->getVisibleRobots<Team::ENEMY>();
@@ -179,7 +183,7 @@ std::optional<BallHolder> calculateBallPosession(const game_data_provider::GameD
     return ball_holder;
 }
 
-std::optional<double> calculateThreatLevel(const transform::RobotHandle& enemy_handle) {
+double calculateThreatLevel(const transform::RobotHandle& enemy_handle) {
     return calculateThreatLevel(enemy_handle.getPosition(), enemy_handle.getWorldModel().lock(), time::TimePoint(0));
 }
 
@@ -255,11 +259,58 @@ std::optional<AllyRobot::BestPassReceiver> calculateBestPassReceiver(const trans
                                      passing_robot_handle.getID(), time);
 }
 
-std::optional<double> calculatePassProbability(const transform::RobotHandle& passing_robot,
-                                               const RobotIdentifier& receiving_robot,
-                                               const std::shared_ptr<const transform::WorldModel>& world_model_ptr,
-                                               const time::TimePoint time) {
-    return pass_probability::calculatePassProbability(passing_robot, receiving_robot, world_model_ptr, time);
+double calculatePassProbability(const transform::RobotHandle& passing_robot, const RobotIdentifier& receiving_robot,
+                                const std::shared_ptr<const transform::WorldModel>& world_model_ptr,
+                                const time::TimePoint time) {
+    auto pass_prob = pass_probability::calculatePassProbability(passing_robot, receiving_robot, world_model_ptr, time);
+    if (pass_prob.has_value()) {
+        return pass_prob.value();
+    }
+    return 0;
+}
+
+double calculateInterceptionScore(const transform::RobotHandle& handle, const time::TimePoint time) {
+    const auto world_model = handle.getWorldModel().lock();
+    if (world_model == nullptr) return 0;
+
+    const auto ball_info = world_model->getBallInfo();
+    if (ball_info.has_value() && ball_info->state == transform::BallState::IN_ROBOT && ball_info->robot.has_value()) {
+        if (handle.getID() == *ball_info->robot) return 0;
+    }
+
+    const auto pos = transform::helper::getPosition(handle, time);
+    if (!pos.has_value()) return 0;
+
+    const auto ball_pos = transform::helper::getBallPosition(*world_model);
+    if (!ball_pos.has_value()) return 0;
+
+    const auto ball_vel_vec = transform::helper::getBallVelocity(*world_model, time);
+    if (!ball_vel_vec.has_value()) return 0;
+
+    const auto& cs = config_provider::ConfigProvider::getConfigStore();
+
+    const double min_ball_vel_threshold = cs.observer_config.interceptor_min_ball_vel_threshold;
+
+    if (ball_vel_vec->norm() < min_ball_vel_threshold) return 0.0;
+
+    const auto ball_robot_vec = *pos - *ball_pos;
+
+    const double max_dist_to_ball_in_sec = cs.observer_config.interceptor_max_distance_in_ball_vel;
+    const double max_dist_to_ball = ball_vel_vec->norm() * max_dist_to_ball_in_sec;
+
+    const double distance_robot_to_ball = ball_robot_vec.norm();
+
+    if (distance_robot_to_ball > max_dist_to_ball) return 0.0;
+
+    const double max_robot_vel = cs.observer_config.interceptor_max_robot_vel;
+    const double alpha_factor = cs.observer_config.interceptor_alpha_factor;
+
+    const auto [is_viable, angle] =
+        misc::isInsideAngle(ball_robot_vec, ball_vel_vec->head<2>(), max_robot_vel, alpha_factor);
+
+    if (!is_viable) return 0.0;
+
+    return 10.0 / angle;
 }
 
 std::optional<bool> calculateInterceptionRobotIsViable(const transform::RobotHandle& handle,
@@ -283,32 +334,32 @@ std::optional<bool> calculateInterceptionRobotIsViable(const transform::RobotHan
 
     const auto& cs = config_provider::ConfigProvider::getConfigStore();
 
+    const auto ball_robot_vec = *pos - *ball_pos;
+
     const double min_ball_vel_threshold = cs.observer_config.interceptor_min_ball_vel_threshold;
     const double ball_vel_abs = ball_vel_vec->norm();
     if (ball_vel_abs < min_ball_vel_threshold) return std::nullopt;
 
-    const auto ball_robot_vec = *pos - *ball_pos;
-
     const double max_robot_vel = cs.observer_config.interceptor_max_robot_vel;
     const double alpha_factor = cs.observer_config.interceptor_alpha_factor;
 
-    return misc::isInsideAngle(ball_robot_vec, ball_vel_vec->head<2>(), max_robot_vel, alpha_factor);
+    return std::get<0>(misc::isInsideAngle(ball_robot_vec, ball_vel_vec->head<2>(), max_robot_vel, alpha_factor));
 }
 
-std::optional<transform::RobotHandle> calculateBestInterceptor(const transform::WorldModel& world_model,
-                                                               std::vector<RobotIdentifier> viable_interceptors,
-                                                               const time::TimePoint time) {
-    const auto ball_info = world_model.getBallInfo();
+std::optional<transform::RobotHandle> calculateBestInterceptor(
+    const std::shared_ptr<const transform::WorldModel>& world_model, std::vector<RobotIdentifier> viable_interceptors,
+    const time::TimePoint time) {
+    const auto ball_info = world_model->getBallInfo();
 
     if (ball_info.has_value() && ball_info->state == transform::BallState::IN_ROBOT && ball_info->robot.has_value() &&
         ball_info->robot->isEnemy()) {
         return std::nullopt;
     }
 
-    const auto ball_vel_vec = transform::helper::getBallVelocity(world_model, time);
+    const auto ball_vel_vec = transform::helper::getBallVelocity(*world_model, time);
     if (!ball_vel_vec.has_value()) return std::nullopt;
 
-    const auto ball_pos = transform::helper::getBallPosition(world_model);
+    const auto ball_pos = transform::helper::getBallPosition(*world_model);
     if (!ball_pos.has_value()) return std::nullopt;
 
     const auto& cs = config_provider::ConfigProvider::getConfigStore();
@@ -330,13 +381,13 @@ std::optional<transform::RobotHandle> calculateBestInterceptor(const transform::
         ball_info.has_value() && ball_info->state == transform::BallState::IN_ROBOT && ball_info->robot.has_value();
 
     if (viable_interceptors.empty()) {
-        viable_interceptors = world_model.getVisibleRobots<Team::ALLY>(time);
+        viable_interceptors = world_model->getVisibleRobots<Team::ALLY>(time);
     }
 
     for (const auto& id : viable_interceptors) {
         if (ball_in_robot && id == ball_info->robot) continue;
 
-        const auto pos_affine = world_model.getTransform(id.getFrame());
+        const auto pos_affine = world_model->getTransform(id.getFrame());
         if (!pos_affine.has_value()) return std::nullopt;
         const auto pos = pos_affine->transform.translation();
 
@@ -363,8 +414,7 @@ std::optional<transform::RobotHandle> calculateBestInterceptor(const transform::
 
     if (!best_id_in_angle.has_value()) return std::nullopt;
 
-    std::shared_ptr<const transform::WorldModel> wm_ptr = std::make_shared<const transform::WorldModel>(world_model);
-    return transform::RobotHandle(*best_id_in_angle, wm_ptr);
+    return transform::RobotHandle(*best_id_in_angle, world_model);
 }
 
 }  // namespace luhsoccer::observer::calculation

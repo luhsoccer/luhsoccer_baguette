@@ -1,0 +1,18 @@
+lint-clang:linux:
+  stage: lint
+  needs: []
+  cache:
+    key: lint-clang
+    paths:
+      - .cache/pip
+      - .cache/ccache
+  script:
+    - echo "cython<3" > constraint.txt
+    - export PIP_CONSTRAINT=$PWD/constraint.txt
+    - mkdir build
+    - cmake -S . -B build -G "Ninja" -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DCMAKE_BUILD_TYPE=Release -DDISABLE_TESTS=true -CMAKE_DISABLE_PRECOMPILE_HEADERS=ON
+    - git fetch origin $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME:$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME
+    - git fetch origin $CI_MERGE_REQUEST_TARGET_BRANCH_NAME:$CI_MERGE_REQUEST_TARGET_BRANCH_NAME
+    - git diff --name-only origin/$CI_MERGE_REQUEST_SOURCE_BRANCH_NAME origin/$CI_MERGE_REQUEST_TARGET_BRANCH_NAME | grep "\.cpp$" | xargs clang-tidy -format-style=file -header-filter=. -p build
+
+  allow_failure: true

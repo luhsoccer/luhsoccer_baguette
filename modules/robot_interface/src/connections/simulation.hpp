@@ -1,3 +1,5 @@
+#pragma once
+
 #include "packets.hpp"
 #include "robot_interface/robot_interface_types.hpp"
 #include "luhsoccer_robot_interface.pb.h"
@@ -8,14 +10,13 @@ class SimulationConnection {
     using RobotOutput = std::function<void(const proto::RobotFeedback&, TeamColor)>;
 
    public:
-    SimulationConnection(simulation_interface::SimulationInterface& interface);
-    void setRobotOutput(RobotOutput output);
+    SimulationConnection(std::function<void(RobotFeedbackWrapper)> on_feedback,
+                         simulation_interface::SimulationInterface& interface);
+
     void send(const proto::RobotControl& cmd, TeamColor color);
 
-    std::mutex last_feedbacks_mutex;
-    std::vector<proto::RobotFeedback> last_feedbacks;
-
    private:
+    std::function<void(RobotFeedbackWrapper)> on_feedback;
     simulation_interface::SimulationInterface& interface;
 };
 
@@ -23,7 +24,7 @@ class SimulationPacketBuilder : public PacketBuilder {
    public:
     SimulationPacketBuilder(SimulationConnection& connection);
     void addMessage(const RobotCommandWrapper& cmd) override;
-    std::vector<RobotFeedbackWrapper> buildAndSend() override;
+    void buildAndSend() override;
 
    private:
     SimulationConnection& connection;

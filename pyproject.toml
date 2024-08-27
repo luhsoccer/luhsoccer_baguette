@@ -1,54 +1,83 @@
 [build-system]
-requires = [
-    "scikit-build-core[rich]",
-    "pybind11",
-    "conan==1.59.0",
-    "pybind11-stubgen",
-]
+# We need numpy here, since it must be preset for stub generation
+requires = ["scikit-build-core>=0.7.1", "numpy>=1.14.5"]
 build-backend = "scikit_build_core.build"
 
 [project]
 name = "luhsoccer_baguette"
-version = "0.0.0.dev0"
 description = "Our software as a python module"
-readme = "README.md"
+# The version is set by setuptools_scm (by last git tag)
+dynamic = ["version"]
+# We can't do this there because gitlab complains that the description is too long (> 4000 chars)
+# readme = "README.md"
 authors = [
     { name = "Sebastian Knackstedt", email = "sebastian.knackstedt@luhbots.de" },
 ]
 requires-python = ">=3.10"
-dependencies = ['numpy>=1.14.5']
+dependencies = ["numpy>=1.14.5"]
 
+[project.scripts]
+luhsoccer_baguette = "baguette_py.__main__:main"
 
 [project.optional-dependencies]
 test = ["pytest"]
 
-
 [tool.scikit-build]
-cmake.minimum-version = "3.18"
-ninja.minimum-version = "1.5"
+metadata.version.provider = "scikit_build_core.metadata.setuptools_scm"
+cmake.minimum-version = "3.22"
+ninja.minimum-version = "1.11"
+# Don't allow make builds
+ninja.make-fallback = false
 wheel.expand-macos-universal-tags = true
 wheel.packages = ["baguette_py"]
+# Custom build dir to avoid conflicts with the normal build
+# Also in this way the objects can be reused in subsequent builds
 build-dir = "build-python"
-cmake.args = ["--fresh"]
 cmake.build-type = "RelWithDebInfo"
+editable.mode = "redirect"
+editable.rebuild = true
+editable.verbose = true
+install.strip = false
+
+[[tool.scikit-build.overrides]]
+if.platform_system = "linux"
+if.env.CI = false
+# The toolchain is needed for vcpkg. A better way would be to set the cmake toolchain file but sadly this is currently not possible
+cmake.args = ["--preset=RelWithDebInfo/gcc"]
+
+[[tool.scikit-build.overrides]]
+if.platform_system = "win32"
+if.env.CI = false
+# The toolchain is needed for vcpkg. A better way would be to set the cmake toolchain file but sadly this is currently not possible
+cmake.args = ["--preset=RelWithDebInfo/MSVC"]
+
+[tool.setuptools_scm]
+git_describe_command = "git describe --dirty --tags  --match '*[0-9]*' --long  --abbrev=10 --debug"
 
 [tool.scikit-build.cmake.define]
-BUILD_PYTHON_MODULE = true
+# Enable unity build for faster compilation
+CMAKE_UNITY_BUILD = true
 DISABLE_TESTS = true
+DISABLE_BENCHMARKS = true
 ENABLE_DEPLOY_BUILD = true
 ENABLE_RELEASE_LTO = true
+ENABLE_ADDRESS_SANITIZER = false
+ENABLE_UB_SANITIZER = false
+ENABLE_THREAD_SANITIZER = false
+ENABLE_LEAK_SANITIZER = false
 
 [tool.cibuildwheel]
-build-verbosity = 2
+build-verbosity = 1
 
 [tool.cibuildwheel.windows]
-environment = { CMAKE_GENERATOR = "Ninja", CMAKE_BUILD_TYPE = "Release" }
+environment = { CMAKE_GENERATOR = "Ninja", CI = "true" }
 
 [tool.cibuildwheel.linux]
-before-all = "yum repolist && yum install -y libfontenc-devel libXaw-devel libXcomposite-devel libXcursor-devel libXdmcp-devel libXtst-devel libXinerama-devel libxkbfile-devel libXrandr-devel libXres-devel libXScrnSaver-devel libXvMC-devel xcb-util-wm-devel xcb-util-image-devel xcb-util-keysyms-devel xcb-util-renderutil-devel libXv-devel xcb-util-devel libuuid-devel libXdamage-devel libXxf86vm-devel"
+environment = { CI = "true" }
+# https://almalinux.org/blog/2023-12-20-almalinux-8-key-update/
+before-all = "rpm --import https://repo.almalinux.org/almalinux/RPM-GPG-KEY-AlmaLinux && yum repolist && yum install -y zip unzip curl perl libXcursor-devel libXinerama-devel libXi-devel libXrandr-devel"
 manylinux-x86_64-image = "manylinux_2_28"
 manylinux-pypy_x86_64-image = "manylinux_2_28"
-environment = { CMAKE_GENERATOR = "Ninja", CMAKE_BUILD_TYPE = "RelWithDebInfo" }
 
 [tool.pytest.ini_options]
 python_files = "test_*.py"

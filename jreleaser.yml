@@ -1,0 +1,75 @@
+release:
+  # Repo in which the release will be created.
+  #
+  gitlab:
+    # Disables or enables publication to GitLab.
+    # defaults to `true`.
+    #
+    enabled: true
+
+    # The user or organization that owns the repository.
+    #
+    owner: luhbots
+
+    # The name of the repository.
+    # If unspecified, will use `#{project.name}`.
+    #
+    name: luhsoccer_baguette
+
+    projectIdentifier: "42697188"
+
+    # The GitLab host url.
+    #
+    host: gitlab.com
+
+    # The GitLab API endpoint to use.
+    # You can skip `/api/v1` as it will be added by default.
+    #
+    apiEndpoint: https://gitlab.com
+
+    changelog:
+      enabled: true
+      formatted: ALWAYS
+      preset: conventional-commits
+      content: |
+        # Changelog
+
+        {{changelogChanges}}
+      contributors:
+        format: "- {{contributorName}}{{#contributorUsernameAsLink}} ({{.}}){{/contributorUsernameAsLink}}"
+
+      skipMergeCommits: true
+
+      hide:
+        categories:
+          - "merge"
+
+      append:
+        enabled: true
+        target: "CHANGELOG.md"
+
+    checksums: true
+
+    #
+    repoUrl: https://{{repoHost}}/{{repoOwner}}/{{repoName}}
+
+    #
+    repoCloneUrl: https://{{repoHost}}/{{repoOwner}}/{{repoName}}.git
+
+    #
+    commitUrl: https://{{repoHost}}/{{repoOwner}}/{{repoName}}/-/commits
+
+    #
+    srcUrl: https://{{repoHost}}/{{repoOwner}}/{{repoName}}/-/blob/{{repoBranch}}
+
+    #
+    downloadUrl: https://{{repoHost}}/{{repoOwner}}/{{repoName}}/-/releases/{{tagName}}/downloads/{{artifactFile}}
+
+    #
+    releaseNotesUrl: https://{{repoHost}}/{{repoOwner}}/{{repoName}}/-/releases/{{tagName}}
+
+    #
+    latestReleaseUrl: https://{{repoHost}}/{{repoOwner}}/{{repoName}}/-/releases/permalink/latest
+
+    #
+    issueTrackerUrl: https://{{repoHost}}/{{repoOwner}}/{{repoName}}/-/issues

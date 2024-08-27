@@ -1,7 +1,7 @@
 #pragma once
 
 #include <map>
-#include "module.hpp"
+#include "core/module.hpp"
 #include "logger/logger.hpp"
 #include "time/time.hpp"
 #include "transform/transform.hpp"
@@ -54,6 +54,8 @@ class MarkerService : public BaguetteModule {
      * @param marker
      */
     void displayMarker(RobotInfo marker);
+
+    void removeRobotInfoMarker(RobotIdentifier robot);
 
     /**
      * @brief adds the given marker to the markers map or updates it if its already present
@@ -116,7 +118,7 @@ class MarkerService : public BaguetteModule {
             case MType::CIRCULAR_HEATMAP:
                 return Type2D::CIRCULAR_HEATMAP2D;
             default:
-                LOG_WARNING(LOGGER, "Could not convert 3D MarkerType to 2D MarkerType");
+                LOGGER.warning("Could not convert 3D MarkerType to 2D MarkerType");
                 break;
         }
         return Type2D::LAST_MARKER_TYPE2D;
@@ -130,8 +132,10 @@ class MarkerService : public BaguetteModule {
      */
     Type3D get3DMarkerType(MType type) {
         switch (type) {
-            case MType::GOAL_BORDERS:
-                return Type3D::GOAL_BORDERS3D;
+            case MType::GOAL_BORDERS_DIVA:
+                return Type3D::GOAL_BORDERS3D_DIVA;
+            case MType::GOAL_BORDERS_DIVB:
+                return Type3D::GOAL_BORDERS3D_DIVB;
             case MType::ROBOT:
                 return Type3D::ROBOT3D;
             case MType::BALL:
@@ -155,7 +159,7 @@ class MarkerService : public BaguetteModule {
             case MType::TEXT:
                 return Type3D::TEXT3D;
             default:
-                LOG_WARNING(LOGGER, "Could not convert 2D MarkerType to 3D MarkerType");
+                LOGGER.warning("Could not convert 2D MarkerType to 3D MarkerType");
                 break;
         }
         return Type3D::LAST_MARKER_TYPE3D;
@@ -187,7 +191,7 @@ class MarkerService : public BaguetteModule {
     mutable std::mutex line_plots_mutex{};
 
     /** holds other infos */
-    std::unordered_map<std::string, std::unordered_map<size_t, Info>> infos;
+    std::map<std::string, std::map<std::string, Info>> infos;
     mutable std::mutex info_mutex{};
 
     /** for locking of the luhviz_markers while accessing it */
@@ -201,7 +205,7 @@ class MarkerService : public BaguetteModule {
      * @param tf the tf of the marker retrieved from worldmodel
      * @param markers struct to append the created MarkerImpl
      */
-    void convertMarkerForLuhviz(Marker& marker, Eigen::Affine2d tf);
+    void convertMarkerForLuhviz(Marker& marker, Eigen::Affine2d tf, const transform::Velocity& vel);
 
     /**
      * @brief Creates a MarkerImpl of the given type for displaying in luhviz this is used to display all available tfs

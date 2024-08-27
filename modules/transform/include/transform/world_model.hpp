@@ -20,7 +20,7 @@
 #include "time/time.hpp"
 #include "transform/circular_buffer.hpp"
 #include "logger/logger.hpp"
-#include "robot_identifier.hpp"
+#include "core/robot_identifier.hpp"
 #include "transform/game_state.hpp"
 
 namespace luhsoccer::transform {
@@ -190,7 +190,7 @@ struct BallInfo {
      * @brief the position and velocity of the ball in the field
      *
      */
-    std::optional<std::pair<std::optional<Eigen::Affine2d>, std::optional<Eigen::Vector3d>>> position;
+    std::optional<std::pair<Eigen::Affine2d, Eigen::Vector3d>> position;
 
     [[nodiscard]] bool isInRobot(const RobotIdentifier& robot) const {
         return this->state == BallState::IN_ROBOT && this->robot.has_value() && this->robot.value() == robot;
@@ -216,7 +216,9 @@ struct FieldData {
     double goal_height{0.0};
     double ball_radius{0.0};
     double max_robot_radius{0.0};
-    double field_runoff_width{0.3};
+    double field_runoff_width{0.0};
+
+    friend bool operator==(const FieldData& lhs, const FieldData& rhs);
 };
 
 /**
@@ -228,43 +230,9 @@ struct RobotDataStorage {
     template <class T>
     using DataStorage = std::unordered_map<RobotIdentifier, std::shared_ptr<CircularBuffer<T>>>;
 
-    RobotDataStorage()
-        : possible_robots(generateAllPossibleRobots(MAX_ROBOTS_PER_TEAM)),
-          possible_ally_robots(generatePossibleRobots(MAX_ROBOTS_PER_TEAM, Team::ALLY)),
-          possible_enemy_robots(generatePossibleRobots(MAX_ROBOTS_PER_TEAM, Team::ENEMY)) {
-        for (size_t i = 0; i < MAX_ROBOTS_PER_TEAM; i++) {
-            this->ally_robots.emplace(RobotIdentifier(i, Team::ALLY),
-                                      std::make_shared<CircularBuffer<AllyRobotData>>(DEFAULT_TRANSFORM_BUFFER_SIZE));
-            this->enemy_robots.emplace(RobotIdentifier(i, Team::ENEMY),
-                                       std::make_shared<CircularBuffer<RobotData>>(DEFAULT_TRANSFORM_BUFFER_SIZE));
-        }
-    };
+    RobotDataStorage();
 
-    RobotDataStorage(const RobotDataStorage& previous)
-        : possible_robots(generateAllPossibleRobots(MAX_ROBOTS_PER_TEAM)),
-          possible_ally_robots(generatePossibleRobots(MAX_ROBOTS_PER_TEAM, Team::ALLY)),
-          possible_enemy_robots(generatePossibleRobots(MAX_ROBOTS_PER_TEAM, Team::ENEMY)) {
-        for (size_t i = 0; i < MAX_ROBOTS_PER_TEAM; i++) {
-            RobotIdentifier ally(i, Team::ALLY);
-            auto previous_ally = previous.ally_robots.find(ally);
-            if (previous_ally != previous.ally_robots.end()) {
-                this->ally_robots.emplace(ally, std::make_shared<CircularBuffer<AllyRobotData>>(
-                                                    DEFAULT_TRANSFORM_BUFFER_SIZE, previous_ally->second));
-            } else {
-                this->ally_robots.emplace(
-                    ally, std::make_shared<CircularBuffer<AllyRobotData>>(DEFAULT_TRANSFORM_BUFFER_SIZE));
-            }
-            RobotIdentifier enemy(i, Team::ENEMY);
-            auto previous_enemy = previous.enemy_robots.find(enemy);
-            if (previous_enemy != previous.enemy_robots.end()) {
-                this->enemy_robots.emplace(enemy, std::make_shared<CircularBuffer<RobotData>>(
-                                                      DEFAULT_TRANSFORM_BUFFER_SIZE, previous_enemy->second));
-            } else {
-                this->enemy_robots.emplace(enemy,
-                                           std::make_shared<CircularBuffer<RobotData>>(DEFAULT_TRANSFORM_BUFFER_SIZE));
-            }
-        }
-    };
+    RobotDataStorage(const RobotDataStorage& previous);
 
     RobotDataStorage& operator=(const RobotDataStorage&) = delete;
     RobotDataStorage(const RobotDataStorage&&) = delete;
@@ -284,24 +252,8 @@ struct RobotDataStorage {
      */
     constexpr inline static RobotIdentifier EMPTY_HANDLE{std::numeric_limits<unsigned int>().max(), Team::ALLY};
 
-    const static std::vector<RobotIdentifier> generatePossibleRobots(size_t robot_num, Team team) {
-        std::vector<RobotIdentifier> v;
-        for (size_t i = 0; i < robot_num; i++) {
-            // NOLINTNEXTLINE(modernize-use-emplace) - vector cant create RobotIdentifier
-            v.push_back(RobotIdentifier(i, team));
-        }
-        return v;
-    };
-    const static std::vector<RobotIdentifier> generateAllPossibleRobots(size_t robot_num) {
-        std::vector<RobotIdentifier> v;
-        for (size_t i = 0; i < robot_num; i++) {
-            // NOLINTNEXTLINE(modernize-use-emplace) - vector cant create RobotIdentifier
-            v.push_back(RobotIdentifier(i, Team::ALLY));
-            // NOLINTNEXTLINE(modernize-use-emplace) - vector cant create RobotIdentifier
-            v.push_back(RobotIdentifier(i, Team::ENEMY));
-        }
-        return v;
-    };
+    const static std::vector<RobotIdentifier> generatePossibleRobots(size_t robot_num, Team team);
+    const static std::vector<RobotIdentifier> generateAllPossibleRobots(size_t robot_num);
 };
 /**
  * @brief The default displacement of a ball when it is in the dribbler, measured from the center in x direction of a
@@ -320,7 +272,7 @@ const Eigen::Affine2d OUT_OF_GAME_TRANSFORM = Eigen::Translation2d(100, 0) * Eig
  * @note objects of this class can be used in multiple threads as every member function is threadsafe.
  * @note WorldModel objects are usually stored in std::shared_ptr.
  */
-class WorldModel {
+class WorldModel : public std::enable_shared_from_this<WorldModel> {
    public:
     /**
      * @brief Construct a new Main World Model object
@@ -457,6 +409,12 @@ class WorldModel {
 
     std::optional<BallInfo> getBallInfo(const time::TimePoint& time = time::TimePoint(0)) const;
 
+    std::optional<Eigen::Vector2d> getBallPosition() const;
+    Eigen::Vector2d getBallPositionOr(const Eigen::Vector2d& default_value) const;
+
+    std::optional<Eigen::Vector3d> getBallVelocity() const;
+    Eigen::Vector3d getBallVelocityOr(const Eigen::Vector3d& default_value) const;
+
     void setLastBallObtainPosition(const time::TimePoint& time, const Eigen::Affine2d& position) {
         const std::unique_lock<std::shared_mutex> lock(this->ball_obtain_mutex);
         this->last_ball_obtain_position = {time, position};
@@ -471,6 +429,7 @@ class WorldModel {
         const std::shared_lock<std::shared_mutex> lock(this->ball_obtain_mutex);
         return this->last_ball_obtain_position;
     }
+
     // ---------------------------GameState-------------------------------------
     bool pushNewGameState(const GameState& game_state, const time::TimePoint& time);
 

@@ -10,7 +10,8 @@
 namespace luhsoccer::marker {
 
 enum class MType {
-    GOAL_BORDERS,
+    GOAL_BORDERS_DIVA,
+    GOAL_BORDERS_DIVB,
     ROBOT,
     BALL,
     FRAME,
@@ -32,12 +33,14 @@ enum class MType {
     CIRCULAR_HEATMAP,
     INFO,
     ROBOT_INFO,
+    GRID,
     LAST_MARKER_TYPE,  // this needs to stay the last enum type!
 };
 
 // Marker Types
 enum class Type3D {
-    GOAL_BORDERS3D,
+    GOAL_BORDERS3D_DIVA,
+    GOAL_BORDERS3D_DIVB,
     ROBOT3D,
     BALL3D,
     FRAME3D,
@@ -49,6 +52,7 @@ enum class Type3D {
     ARROW3D,
     SUZANNE3D,
     TEXT3D,
+    GRID,
     LAST_MARKER_TYPE3D,  // this needs to stay the last enum type!
 };
 
@@ -114,7 +118,7 @@ class Color {
     static constexpr Color LIGHT_GREY(double alpha = 1) { return {0.7, 0.7, 0.7, alpha}; }
     static constexpr Color WHITE(double alpha = 1) { return {1, 1, 1, alpha}; }
     static constexpr Color BLACK(double alpha = 1) { return {0, 0, 0, alpha}; }
-    // NOLINTEND
+    // NOLINTEND(readability-identifier-naming)
 
     /**
      * @brief converts hsv colors to rgb
@@ -335,9 +339,17 @@ class Marker {
  * @brief displays the robot mesh
  *
  */
-class GoalBorder : public Marker {
+class GoalBorderDivA : public Marker {
    public:
-    GoalBorder(transform::Position position, std::string ns = "default_ns", size_t id = 0);
+    GoalBorderDivA(transform::Position position, std::string ns = "default_ns", size_t id = 0);
+};
+/**
+ * @brief displays the robot mesh
+ *
+ */
+class GoalBorderDivB : public Marker {
+   public:
+    GoalBorderDivB(transform::Position position, std::string ns = "default_ns", size_t id = 0);
 };
 /**
  * @brief displays the robot mesh
@@ -411,6 +423,14 @@ class Arrow : public Marker {
 class Suzanne : public Marker {
    public:
     Suzanne(transform::Position position, std::string ns = "default_ns", size_t id = 0);
+};
+/**
+ * @brief displays the grid mesh
+ *
+ */
+class Grid : public Marker {
+   public:
+    Grid(transform::Position position, std::string ns = "default_ns", size_t id = 0);
 };
 /**
  * @brief displays a text mesh
@@ -550,6 +570,7 @@ class Info : public Marker {
    public:
     Info(std::string ns, size_t id) : Marker(transform::Position{"none"}, std::move(ns), id) {
         this->type = MType::INFO;
+        this->color = marker::Color::WHITE();
     }
 
     void set(const std::string& name, std::string& value) { this->setValue(name, value); }
@@ -576,6 +597,14 @@ class Info : public Marker {
  */
 class RobotInfo : public Marker {
    public:
+    struct Badge {
+        Badge(std::string message, Color color, Color text_color)
+            : message(std::move(message)), color(color), text_color(text_color) {}
+        std::string message;
+        Color color;
+        Color text_color;
+    };
+
     RobotInfo(const RobotIdentifier& handle);
 
     /**
@@ -611,39 +640,49 @@ class RobotInfo : public Marker {
     void addParam(std::string key, std::string param);
 
     /**
+     * @brief add a bagde to the robot status.
+     * If message is empty, badge will be invisible.
+     *
+     * @param key
+     * @param message
+     * @param color
+     */
+    void addBadge(std::string key, Badge badge);
+
+    /**
      * @brief Set the status of the robot
      *
      * @param new_status
      */
-    void setStatus(std::string new_status, Color color);
+    // void setStatus(std::string new_status, Color color);
 
     /**
      * @brief Set the text color
      *
      * @param text_color
      */
-    void setStatusTextColor(Color text_color);
+    // void setStatusTextColor(Color text_color);
 
     /**
      * @brief Get the Status of the robot
      *
      * @return RobotStatus
      */
-    [[nodiscard]] std::string getStatus() const;
+    // [[nodiscard]] std::string getStatus() const;
 
     /**
      * @brief returns the status background color
      *
      * @return marker::Color
      */
-    [[nodiscard]] marker::Color getStatusColor() const;
+    // [[nodiscard]] marker::Color getStatusColor() const;
 
     /**
      * @brief return the text color
      *
      * @return marker::Color
      */
-    [[nodiscard]] marker::Color getStatusTextColor() const;
+    // [[nodiscard]] marker::Color getStatusTextColor() const;
 
     /**
      * @brief Get the Robot Id
@@ -659,12 +698,20 @@ class RobotInfo : public Marker {
      */
     [[nodiscard]] std::map<std::string, std::string> getParams() const;
 
+    /**
+     * @brief Get the badges
+     *
+     * @return std::map<std::string, std::pair<std::string, Color>>
+     */
+    [[nodiscard]] std::map<std::string, Badge> getBadges() const;
+
    private:
     RobotIdentifier handle;
     std::map<std::string, std::string> params{};
-    std::string status{};
-    Color status_color{Color::RED()};
-    Color status_text_color{Color::WHITE()};
+    std::map<std::string, Badge> badges{};
+    // std::string status{};
+    // Color status_color{Color::RED()};
+    // Color status_text_color{Color::WHITE()};
 };
 
 // utility structure for realtime plot
@@ -675,18 +722,18 @@ class LinePlot : public Marker {
 
     void addPoint(float x, float y);
 
-
     void swap(LinePlot& other);
 
     class LineData {
        public:
-           LineData(const std::string& label);
-           const std::string& getLabel() const;
-            
-           const std::vector<float>& getDataX() const;
-           const std::vector<float>& getDataY() const;
+        LineData(const std::string& label);
+        const std::string& getLabel() const;
 
-           void clear();
+        const std::vector<float>& getDataX() const;
+        const std::vector<float>& getDataY() const;
+
+        void clear();
+
        private:
         void addPoint(float x, float y);
         std::string label;
@@ -703,11 +750,10 @@ class LinePlot : public Marker {
 
     void addPoint(LineHandle handle, float x, float y);
 
-
     float getLeftLimit() const;
     float getRightLimit() const;
+
    private:
-   
     float time_window;
     float newest_sample;
     std::vector<LineData> lines;

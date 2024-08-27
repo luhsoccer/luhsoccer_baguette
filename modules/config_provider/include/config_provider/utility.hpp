@@ -1,7 +1,6 @@
 
 #pragma once
 
-#include <iostream>
 #include <toml++/toml.h>
 #include "datatypes.hpp"
 #include "logger/logger.hpp"
@@ -34,7 +33,7 @@ T valueOr(const toml::table& tbl, const std::string_view key, const std::string_
         // naming conflicts)
         if (element.type() != toml::v3::node_type::table) {
             if constexpr (datatypes::DEBUG_PRINTS) {
-                LOG_DEBUG(logger, "Could not find Group '{}' for Variable '{}'! Using default Value!", group, key);
+                logger.debug("Could not find Group '{}' for Variable '{}'! Using default Value!", group, key);
             }
             return default_value;
         }
@@ -52,10 +51,10 @@ T valueOr(const toml::table& tbl, const std::string_view key, const std::string_
         // If: The found element has a different type than the specified type, Give a specific Warning message
         // Else: there exists no element with the specified key, Give a specific Warning message
         if (element.type() != toml::v3::node_type::none) {
-            LOG_WARNING(logger, "Could not load Value for key '{}' because types dont match!", key);
+            logger.warning("Could not load Value for key '{}' because types dont match!", key);
         } else {
             if constexpr (datatypes::DEBUG_PRINTS) {
-                LOG_DEBUG(logger, "Could not find value for key '{}', using default value", key);
+                logger.debug("Could not find value for key '{}', using default value", key);
             }
         }
 
@@ -81,7 +80,7 @@ bool adjustTable(toml::table* tbl, const std::string_view key, const std::string
     logger::Logger logger("config_provider");
 
     if (tbl == nullptr) {
-        LOG_WARNING(logger, "Pointer to table is nullptr");
+        logger.warning("Pointer to table is nullptr");
         return false;
     }
 
@@ -98,7 +97,7 @@ bool adjustTable(toml::table* tbl, const std::string_view key, const std::string
         if (element.type() != toml::v3::node_type::table) {
             // If the group was not found insert it and add its respective value
             tbl->insert(group, toml::table({{key, val}}));
-            LOG_INFO(logger, "Could not find Group '{}' for Variable '{}'! Inserting...", group, key);
+            logger.info("Could not find Group '{}' for Variable '{}'! Inserting...", group, key);
             return true;
         }
 
@@ -116,7 +115,7 @@ bool adjustTable(toml::table* tbl, const std::string_view key, const std::string
         return true;
     }
 
-    LOG_WARNING(logger, "Could not save Parameter '{}' becausae types dont match!", key);
+    logger.warning("Could not save Parameter '{}' becausae types dont match!", key);
     return false;
 }
 

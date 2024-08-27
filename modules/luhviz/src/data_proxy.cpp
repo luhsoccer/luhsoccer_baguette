@@ -2,17 +2,21 @@
 #include <numeric>
 #include <transform_helper/world_model_helper.hpp>
 
+#include "config/game_config.hpp"
+#include "scenario/scenario_book.hpp"
+
 namespace luhsoccer::luhviz {
 
-DataProxy::DataProxy(ssl_interface::SSLInterface& ssl, simulation_interface::SimulationInterface& sim,
-                     local_planner::LocalPlannerModule& local_planner, skills::BodSkillBook& skill_book,
-                     robot_interface::RobotInterface& robot_interface, game_data_provider::GameDataProvider& gdp,
-                     scenario::ScenarioExecutor& scenario_executor)
-    : ssl(ssl),
+DataProxy::DataProxy(software_manager::SoftwareManager& sm, ssl_interface::SSLInterface& ssl,
+                     simulation_interface::SimulationInterface& sim, robot_control::RobotControlModule& robot_control,
+                     skills::SkillLibrary& skill_lib, robot_interface::RobotInterface& robot_interface,
+                     game_data_provider::GameDataProvider& gdp, scenario::ScenarioExecutor& scenario_executor)
+    : software_manager(sm),
+      ssl(ssl),
       robot_interface(robot_interface),
       sim(sim),
-      local_planner(local_planner),
-      skill_book(skill_book),
+      robot_control(robot_control),
+      skill_lib(skill_lib),
       selected_vision_source(ssl_interface::VisionDataSource::DISABLED),
       gdp(gdp),
       scenario_executor(scenario_executor) {
@@ -23,11 +27,17 @@ DataProxy::DataProxy(ssl_interface::SSLInterface& ssl, simulation_interface::Sim
     this->zero_kick_time = getConfigDouble("luhviz", "zero_kick_delay");
 }
 
-void DataProxy::setVisionSource(const std::string& src) {
-    std::stringstream s;
-    s << this->selected_vision_source;
+void DataProxy::replayGamelog(std::string file) {
+    logger.info("Loading gamelog: {}", file[0]);
+    ssl_interface::LogFile log_file(std::move(file));
 
-    if (s.str() == src)
+    ssl.setVisionDataSource(ssl_interface::VisionDataSource::GAME_LOG);
+    ssl.setGameControllerDataSource(ssl_interface::GameControllerDataSource::GAME_LOG);
+    ssl.playGameLog(std::move(log_file));
+}
+
+void DataProxy::setVisionSource(const std::string& src) {
+    if (fmt::to_string(this->selected_vision_source) == src)
         return;
     else {
         if (src == "Simulation") {
@@ -44,17 +54,10 @@ void DataProxy::setVisionSource(const std::string& src) {
     this->ssl.setVisionDataSource(this->selected_vision_source);
 }
 
-std::string DataProxy::getVisionSource() {
-    std::stringstream s;
-    s << this->selected_vision_source;
-    return s.str();
-}
+std::string DataProxy::getVisionSource() { return fmt::to_string(this->selected_vision_source); }
 
 void DataProxy::setRobotConnection(const std::string& src) {
-    std::stringstream s;
-    s << this->selected_robot_connection;
-
-    if (s.str() == src)
+    if (fmt::to_string(this->selected_robot_connection) == src)
         return;
     else {
         if (src == "Disabled") {
@@ -63,54 +66,38 @@ void DataProxy::setRobotConnection(const std::string& src) {
             this->selected_robot_connection = robot_interface::RobotConnection::NETWORK;
         } else if (src == "Serial") {
             this->selected_robot_connection = robot_interface::RobotConnection::SERIAL;
-        } else if (src == "Serial (Legacy)") {
-            this->selected_robot_connection = robot_interface::RobotConnection::SERIAL_LEGACY;
         } else if (src == "Simulation") {
             this->selected_robot_connection = robot_interface::RobotConnection::SIMULATION;
-        } else {
-            this->selected_robot_connection = robot_interface::RobotConnection::SIMULATION_LEGACY;
         }
     }
 
     this->robot_interface.setConnectionType(this->selected_robot_connection);
 }
 
-std::string DataProxy::getRobotConnection() {
-    std::stringstream s;
-    s << this->selected_robot_connection;
-    return s.str();
-}
+std::string DataProxy::getRobotConnection() { return fmt::to_string(this->selected_robot_connection); }
 
 void DataProxy::setSimulationConnection(const std::string& src) {
-    std::stringstream s;
-    s << this->selected_simulation_connector;
-
-    if (s.str() == src)
+    if (fmt::to_string(this->selected_simulation_connector) == src)
         return;
     else {
         if (src == "None") {
             this->selected_simulation_connector = simulation_interface::SimulationConnectorType::NONE;
-        } else if (src == "Test-Simulation-Connector") {
+        } else if (src == "Test-Simulation") {
             this->selected_simulation_connector = simulation_interface::SimulationConnectorType::TEST_SIMULATION;
-        } else {
+        } else if (src == "ErForce-Simulation") {
             this->selected_simulation_connector = simulation_interface::SimulationConnectorType::ERFORCE_SIMULATION;
+        } else if (src == "ErSim") {
+            this->selected_simulation_connector = simulation_interface::SimulationConnectorType::ER_SIM;
         }
     }
 
     this->sim.switchConnector(this->selected_simulation_connector);
 }
 
-std::string DataProxy::getSimulationConnection() {
-    std::stringstream s;
-    s << this->selected_simulation_connector;
-    return s.str();
-}
+std::string DataProxy::getSimulationConnection() { return fmt::to_string(this->selected_simulation_connector); }
 
 void DataProxy::setGameControllerDataSource(const std::string& src) {
-    std::stringstream s;
-    s << this->selected_gamecontroller_data_source;
-
-    if (s.str() == src)
+    if (fmt::to_string(this->selected_gamecontroller_data_source) == src)
         return;
     else {
         if (src == "Disabled") {
@@ -128,16 +115,11 @@ void DataProxy::setGameControllerDataSource(const std::string& src) {
 }
 
 std::string DataProxy::getGameControllerDataSource() {
-    std::stringstream s;
-    s << this->selected_gamecontroller_data_source;
-    return s.str();
+    return fmt::to_string(this->selected_gamecontroller_data_source);
 }
 
 void DataProxy::setVisionPublishMode(const std::string& src) {
-    std::stringstream s;
-    s << this->selected_vision_publish_mode;
-
-    if (s.str() == src)
+    if (fmt::to_string(this->selected_vision_publish_mode) == src)
         return;
     else {
         if (src == "Disabled") {
@@ -150,11 +132,7 @@ void DataProxy::setVisionPublishMode(const std::string& src) {
     this->ssl.setVisionPublishMode(this->selected_vision_publish_mode);
 }
 
-std::string DataProxy::getVisionPublishMode() {
-    std::stringstream s;
-    s << this->selected_vision_publish_mode;
-    return s.str();
-}
+std::string DataProxy::getVisionPublishMode() { return fmt::to_string(this->selected_vision_publish_mode); }
 
 void DataProxy::teleportBall(const Eigen::Affine2d& target, const Eigen::Vector3d& velocity) {
     Eigen::Affine2d target_copy = target;
@@ -184,9 +162,9 @@ void DataProxy::loadAvailableSkills() {
     using namespace std::string_literals;
 
     // get all available skills and save them
-    std::vector<std::pair<std::string, skills::BodSkillNames>> available_skillnames = skill_book.getSkillList();
+    std::vector<std::pair<std::string, skills::SkillNames>> available_skillnames = skill_lib.getSkillList();
     for (const auto& pair : available_skillnames) {
-        auto skill = this->skill_book.getSkill(pair.second);
+        auto skill = this->skill_lib.getSkill(pair.second);
         this->available_skills.emplace_back(skill);
         this->available_skills_names += skill.name + "\0"s;
     }
@@ -213,7 +191,7 @@ bool DataProxy::sendSkillsToRobots() {
 
         if (checkTaskData2()) {
             // send the new skill
-            success &= this->local_planner.setTask(this->selected_skill2.value(), this->task_data2.value());
+            success &= this->robot_control.setTask(this->selected_skill2.value(), this->task_data2.value());
             if (success) {
                 this->td_positions2.clear();
                 this->td_related_robots2.clear();
@@ -228,7 +206,7 @@ bool DataProxy::sendSkillsToRobots() {
 
     if (checkTaskData()) {
         // send the new skill
-        success &= this->local_planner.setTask(this->selected_skill.value(), this->task_data.value());
+        success &= this->robot_control.setTask(this->selected_skill.value(), this->task_data.value());
         if (success) {
             this->td_positions.clear();
             this->td_related_robots.clear();
@@ -241,20 +219,20 @@ bool DataProxy::sendSkillsToRobots() {
 bool DataProxy::cancelSkills() {
     bool success = false;
     if (this->selected_robot.has_value()) {
-        success = this->local_planner.cancelTask(this->selected_robot.value());
+        success = this->robot_control.cancelTask(this->selected_robot.value());
     }
     if (this->second_skill_enabled && this->selected_robot2.has_value()) {
-        success &= this->local_planner.cancelTask(this->selected_robot2.value());
+        success &= this->robot_control.cancelTask(this->selected_robot2.value());
     }
     return success;
 }
 
-bool DataProxy::cancelSkill(RobotIdentifier& robot) { return this->local_planner.cancelTask(robot); }
+bool DataProxy::cancelSkill(RobotIdentifier& robot) { return this->robot_control.cancelTask(robot); }
 
-std::optional<local_planner::Skill*> DataProxy::setSelectedSkill(std::optional<size_t> skill_index) {
+std::optional<robot_control::Skill*> DataProxy::setSelectedSkill(std::optional<size_t> skill_index) {
     if (skill_index.has_value()) {
         // ignore if skill has not changed
-        local_planner::Skill& skill_sel = this->available_skills[skill_index.value()];
+        robot_control::Skill& skill_sel = this->available_skills[skill_index.value()];
         if (this->selected_skill.has_value() && skill_sel.name.compare(this->selected_skill.value()->name) == 0) {
             return this->selected_skill.value();
         }
@@ -271,10 +249,10 @@ std::optional<local_planner::Skill*> DataProxy::setSelectedSkill(std::optional<s
     return std::nullopt;
 }
 
-std::optional<local_planner::Skill*> DataProxy::setSelectedSkill2(std::optional<size_t> skill_index) {
+std::optional<robot_control::Skill*> DataProxy::setSelectedSkill2(std::optional<size_t> skill_index) {
     if (skill_index.has_value()) {
         // ignore if skill has not changed
-        local_planner::Skill& skill_sel = this->available_skills[skill_index.value()];
+        robot_control::Skill& skill_sel = this->available_skills[skill_index.value()];
         if (this->selected_skill2.has_value() && skill_sel.name.compare(this->selected_skill2.value()->name) == 0) {
             return this->selected_skill2.value();
         }
@@ -293,17 +271,25 @@ std::optional<local_planner::Skill*> DataProxy::setSelectedSkill2(std::optional<
 
 size_t DataProxy::getRemainingPointsToChoose() {
     if (this->task_data.has_value() && this->selected_skill.has_value()) {
-        int required_points = static_cast<int>(this->selected_skill.value()->required_point_num);
+        int required_points = 0;
+        if (this->selected_skill.value()->required_point_num.has_value()) {
+            required_points = static_cast<int>(this->selected_skill.value()->required_point_num.value());
+        } else {
+            return 1;
+        }
         int added_points = static_cast<int>(this->td_positions.size());
         return required_points - added_points;
     }
-    LOG_WARNING(logger, "Skill is not valid, select a Skill please");
+    logger.warning("Skill is not valid, select a Skill please");
     return 0;
 }
 
 size_t DataProxy::getRemainingPointsToChoose2() {
     if (this->task_data2.has_value() && this->selected_skill2.has_value()) {
-        int required_points = static_cast<int>(this->selected_skill2.value()->required_point_num);
+        int required_points = 0;
+        if (this->selected_skill2.value()->required_point_num.has_value()) {
+            required_points = static_cast<int>(this->selected_skill2.value()->required_point_num.value());
+        }
         int added_points = static_cast<int>(this->td_positions2.size());
         return required_points - added_points;
     }
@@ -319,7 +305,7 @@ int DataProxy::getCountRelRobotsSelected() {
         return already_set;
     }
 
-    LOG_WARNING(logger, "Skill is not valid, select a Skill please");
+    logger.warning("Skill is not valid, select a Skill please");
     return 0;
 }
 
@@ -332,7 +318,7 @@ int DataProxy::getCountRelRobotsSelected2() {
         return already_set;
     }
 
-    LOG_WARNING(logger, "Skill is not valid, select a Skill please");
+    logger.warning("Skill is not valid, select a Skill please");
     return 0;
 }
 
@@ -356,10 +342,8 @@ void DataProxy::updateNextTDRelatedRobot(const RobotIdentifier& related_robot) {
         // deselect if already selected
         this->td_related_robots[found_index] = std::nullopt;
     } else {
-        LOG_DEBUG(logger, "size: {}", this->td_related_robots.size());
         // set the related robot to be there first which is not set yet
         for (auto& r : this->td_related_robots) {
-            LOG_DEBUG(logger, "has value: {}", r.has_value());
             if (!r.has_value()) {
                 r = related_robot;
                 break;
@@ -376,19 +360,19 @@ void DataProxy::clearTaskData() {
 
 bool DataProxy::checkTaskData() {
     if (!this->selected_robot.has_value()) {
-        LOG_WARNING(logger, "Select a robot to run a skill");
+        logger.warning("Select a robot to run a skill");
         this->manipulation_mode = ManipulationMode::SELECT;
         return false;
     }
 
     if (!this->task_data.has_value()) {
-        LOG_WARNING(logger, "TaskData is not valid, check if all required data are set correctly");
+        logger.warning("TaskData is not valid, check if all required data are set correctly");
         this->manipulation_mode = ManipulationMode::SELECT;
         return false;
     }
 
     if (!this->selected_skill.has_value()) {
-        LOG_WARNING(logger, "Skill is not valid, select a Skill please");
+        logger.warning("Skill is not valid, select a Skill please");
         this->manipulation_mode = ManipulationMode::SELECT;
         return false;
     }
@@ -417,19 +401,19 @@ bool DataProxy::checkTaskData() {
 
 bool DataProxy::checkTaskData2() {
     if (!this->selected_robot2.has_value()) {
-        LOG_WARNING(logger, "Select a robot to run a skill 2");
+        logger.warning("Select a robot to run a skill 2");
         this->manipulation_mode = ManipulationMode::SELECT;
         return false;
     }
 
     if (!this->task_data2.has_value()) {
-        LOG_WARNING(logger, "TaskData 2 is not valid, check if all required data are set correctly");
+        logger.warning("TaskData 2 is not valid, check if all required data are set correctly");
         this->manipulation_mode = ManipulationMode::SELECT;
         return false;
     }
 
     if (!this->selected_skill2.has_value()) {
-        LOG_WARNING(logger, "Skill 2 is not valid, select a Skill please");
+        logger.warning("Skill 2 is not valid, select a Skill please");
         this->manipulation_mode = ManipulationMode::SELECT;
         return false;
     }
@@ -490,13 +474,29 @@ void DataProxy::gamepadButtonInput(GamepadControls input, int button_state, size
         return;
     }
 
+    if (((input == GamepadControls::BUTTON_GET_BALL || input == GamepadControls::BUTTON_GO_TO_GOAL) &&
+         button_state == 0) ||
+        time::Duration(time::now() - gamepad_skill_activated) < gamepad_skill_active_duration) {
+        return;
+    }
+
+    if (input == GamepadControls::BUTTON_DRIBBLER && button_state == 0) {
+        data.gamepad_dribbler_buttonstate = 0;
+        return;
+    }
+
     if (input == GamepadControls::BUTTON_VOLTAGE_UP && button_state == 0) {
-        data.gamepad_voltage_up_buttonstate = 0;
+        data.gamepad_kick_velocity_up_buttonstate = 0;
         return;
     }
 
     if (input == GamepadControls::BUTTON_VOLTAGE_DOWN && button_state == 0) {
-        data.gamepad_voltage_down_buttonstate = 0;
+        data.gamepad_velocity_down_buttonstate = 0;
+        return;
+    }
+
+    if (input == GamepadControls::BUTTON_TOGGLE_KICKER_CHIPPER && button_state == 0) {
+        data.gamepad_chipper_buttonstate = 0;
         return;
     }
 
@@ -509,30 +509,33 @@ void DataProxy::gamepadButtonInput(GamepadControls input, int button_state, size
     PerRobotControlData& control_states = this->getPerRobotControlerData(robot);
 
     if (input == GamepadControls::BUTTON_VOLTAGE_UP) {
-        if (data.gamepad_voltage_up_buttonstate == button_state || button_state == 0) return;
-        this->cap_voltage += this->cap_voltage_steps;
-        if (this->cap_voltage >= this->max_cap_voltage) {
-            this->cap_voltage = this->max_cap_voltage;
+        if (data.gamepad_kick_velocity_up_buttonstate == button_state || button_state == 0) return;
+        this->kick_velocity += this->KICK_VELOCITY_STEPS;
+        if (this->kick_velocity >= this->MAX_KICK_VELOCITY) {
+            this->kick_velocity = this->MAX_KICK_VELOCITY;
         }
-        LOG_INFO(logger, "Kick voltage up: {}V", this->cap_voltage);
-        data.gamepad_voltage_up_buttonstate = button_state;
+        logger.info("Kick velocity raised to: {}m/s", this->kick_velocity);
+        data.gamepad_kick_velocity_up_buttonstate = button_state;
     }
 
     if (input == GamepadControls::BUTTON_VOLTAGE_DOWN) {
-        if (data.gamepad_voltage_down_buttonstate == button_state || button_state == 0) return;
-        this->cap_voltage -= this->cap_voltage_steps;
-        if (this->cap_voltage < 0) {
-            this->cap_voltage = 0;
+        if (data.gamepad_velocity_down_buttonstate == button_state || button_state == 0) return;
+        this->kick_velocity -= this->KICK_VELOCITY_STEPS;
+        if (this->kick_velocity < 0) {
+            this->kick_velocity = 0;
         }
-        LOG_INFO(logger, "Kick voltage down: {}V", this->cap_voltage);
-        data.gamepad_voltage_down_buttonstate = button_state;
+        logger.info("Kick velocity lowered to: {}m/s", this->kick_velocity);
+        data.gamepad_velocity_down_buttonstate = button_state;
     }
 
     if (input == GamepadControls::BUTTON_KICKER) {
-        robot_interface::KickCommand kick_command = {this->kick_velocity, 0, this->cap_voltage};
+        float kick_vel = this->chipper_on ? this->MAX_KICK_VELOCITY : this->kick_velocity;
+        robot_interface::KickCommand kick_command = {
+            kick_vel, this->chipper_on ? robot_interface::KickType::CHIP : robot_interface::KickType::KICK};
         this->robot_interface.updateKickCommand(robot, kick_command);
         control_states.last_kick_time = current_time;
-        LOG_INFO(logger, "Kick input");
+        logger.info("executed kick command vel: {}, type: {}", kick_command.velocity,
+                    kick_command.type == robot_interface::KickType::KICK ? "kick" : "chip");
 
     } else if (input == GamepadControls::BUTTON_DRIBBLER) {
         if (data.gamepad_dribbler_buttonstate == button_state) return;
@@ -543,18 +546,60 @@ void DataProxy::gamepadButtonInput(GamepadControls input, int button_state, size
             control_states.last_dribbler = robot_interface::DribblerMode::HIGH;
             this->dribbler_high = true;
 
-            LOG_INFO(logger, "Dribbler HIGH");
+            logger.info("Dribbler HIGH");
             // dribblerData.last_dribbler = robot_interface::DribblerMode::HIGH;
         } else {
             control_states.last_dribbler = robot_interface::DribblerMode::OFF;
             this->dribbler_high = false;
-            LOG_INFO(logger, "Dribbler OFF");
+            logger.info("Dribbler OFF");
         }
 
         // this->control_states_per_robot.insert_or_assign(robot, dribblerData);
 
         data.gamepad_dribbler_buttonstate = button_state;
         this->robot_interface.updateDribbler(robot, control_states.last_dribbler);
+    } else if (input == GamepadControls::BUTTON_GET_BALL) {
+        // send getBall skill
+        setLocalPlannerDisabledForRobot(robot, false);
+        logger.info("GET BALL");
+
+        // If GetBall already set and A pressed again, cancel
+        auto current_skill = this->robot_control.getSkill(robot);
+        if (current_skill != nullptr && current_skill->name == "GetBall") {
+            this->robot_control.cancelTask(robot);
+            gamepad_skill_activated = time::now();
+            return;
+        }
+        this->robot_control.cancelTask(robot);
+        robot_control::TaskData task_data{robot};
+        this->robot_control.setTask(&this->skill_lib.getSkill(skills::GameSkillNames::GET_BALL), task_data);
+        gamepad_skill_activated = time::now();
+
+    } else if (input == GamepadControls::BUTTON_GO_TO_GOAL) {
+        // send goToPoint skill
+        setLocalPlannerDisabledForRobot(robot, false);
+        logger.info("Go TO GOAL");
+        this->robot_control.cancelTask(robot);
+
+        auto left_corner = this->gdp.getWorldModel()->getTransform("field_defense_area_corner_ally_left");
+        auto right_corner = this->gdp.getWorldModel()->getTransform("field_defense_area_corner_ally_right");
+        if (left_corner.has_value() && right_corner.has_value()) {
+            // calculate position in the center of the goal area
+            Eigen::Vector2d mid_translation =
+                (left_corner.value().transform.translation() + right_corner.value().transform.translation()) / 2;
+            transform::Position middle_position = {"", mid_translation.x(), mid_translation.y()};
+
+            robot_control::TaskData task_data{robot, {}, {middle_position}};
+            this->robot_control.setTask(&this->skill_lib.getSkill(skills::GameSkillNames::GO_TO_POINT), task_data);
+            gamepad_skill_activated = time::now();
+        }
+    } else if (input == GamepadControls::BUTTON_TOGGLE_KICKER_CHIPPER) {
+        if (data.gamepad_chipper_buttonstate == button_state || button_state == 0) return;
+
+        this->chipper_on = !this->chipper_on;
+
+        data.gamepad_chipper_buttonstate = button_state;
+        logger.info("Chipper ON: {}", this->chipper_on);
     }
 }
 
@@ -564,9 +609,9 @@ void DataProxy::publishRobotData(double current_time) {
         if (robot_state.second.last_kick_time.has_value()) {
             double last_time = robot_state.second.last_kick_time.value();
             this->zero_kick_time = getConfigDouble("luhviz", "zero_kick_delay");
-            LOG_DEBUG(logger, "{}", zero_kick_time);
+            logger.debug("{}", zero_kick_time);
             if ((current_time - last_time) >= this->zero_kick_time) {
-                robot_interface::KickCommand kick_command = {0, 0, 0};
+                robot_interface::KickCommand kick_command{0.0};
                 this->robot_interface.updateKickCommand(robot_state.first, kick_command);
                 robot_state.second.last_kick_time.reset();
             }
@@ -578,27 +623,150 @@ float& DataProxy::getMovementVelocity() { return this->movement_velocity; }
 
 float& DataProxy::getRotationVelocity() { return this->rotation_velocity; }
 
-void DataProxy::gamepadAxesInput(float x, float y, float rot, size_t id, bool global_movement) {
+int& DataProxy::getGlobalMovementDir() { return this->global_movement_direction; }
+
+void DataProxy::gamepadAxesInput(float x, float y, float rx, float ry, float rot, size_t id, bool global_movement,
+                                 bool point_based_movement) {
     if (this->controller_data.find(id) == this->controller_data.end()) return;
     PerControllerData& data = this->controller_data.at(id);
 
     if (!data.robot_id.has_value()) return;
     RobotIdentifier robot = data.robot_id.value();
 
+    // Mitigate Controller jiggle
     if (x <= 0.15f && x >= -0.15f) {
         x = 0;
     }
     if (y <= 0.15f && y >= -0.15f) {
         y = 0;
     }
-    if (rot == data.last_rot && x == data.last_x && y == data.last_y && x == 0 && y == 0 && rot == 0) return;
 
-    if (global_movement) {
-        auto pos_and_rot =
-            transform::helper::getPositionAndRotation(transform::RobotHandle(robot, gdp.getWorldModel()));
+    if (rx <= 0.15f && rx >= -0.15f) {
+        rx = 0;
+    }
+    if (ry <= 0.15f && ry >= -0.15f) {
+        ry = 0;
+    }
 
+    // Keep old look direction if no direction is 'pressed'
+    if (rx <= 0.5f && rx >= -0.5f && ry <= 0.5f && ry >= -0.5f) {
+        rx = data.last_rx;
+        ry = data.last_ry;
+    }
+
+    auto look_dir = Eigen::Vector2d(rx, ry);
+
+    if (!point_based_movement && rot == data.last_rot && x == data.last_x && y == data.last_y && x == 0 && y == 0 &&
+        rot == 0 && rx == x && ry == y && rx == data.last_rx && ry == data.last_ry) {
+        return;
+    }
+
+    data.last_x = x;
+    data.last_y = y;
+    data.last_rx = look_dir.x();
+    data.last_ry = look_dir.y();
+    data.last_rot = rot;
+
+    static bool point_based_movement_was_active = false;
+
+    auto wm_push_pos_and_heading = [](game_data_provider::GameDataProvider& gdp, const RobotIdentifier& robot,
+                                      const Eigen::Vector2d& pos, const Eigen::Vector2d& heading) {
+        Eigen::Affine2d tp = Eigen::Translation2d(pos) * Eigen::Rotation2Dd(0);
+        transform::TransformWithVelocity transform_t = {
+            .header = {robot.getFrame().append("_controller_position"), "", time::now()},
+            .transform = tp,
+            .velocity = Eigen::Vector3d{0, 0, 0}};
+        gdp.pushControllerTransform(transform_t);
+        Eigen::Affine2d hp = Eigen::Translation2d(heading) * Eigen::Rotation2Dd(0);
+        transform::TransformWithVelocity transform_h = {
+            .header = {robot.getFrame().append("_controller_heading"), "", time::now()},
+            .transform = hp,
+            .velocity = Eigen::Vector3d{0, 0, 0}};
+        gdp.pushControllerTransform(transform_h);
+    };
+
+    if (!point_based_movement && point_based_movement_was_active) {
+        point_based_movement_was_active = false;
+        for (const auto& robot : this->gdp.getWorldModel()->getPossibleRobots()) {
+            wm_push_pos_and_heading(this->gdp, robot, {-10, -10}, {-10, -10});
+        }
+    }
+
+    if (point_based_movement) {
+        point_based_movement_was_active = true;
+        setLocalPlannerDisabledForRobot(robot, false);
+
+        auto pos_and_rot = transform::RobotHandle(robot, gdp.getWorldModel()).getPosAndRotVec();
+        if (pos_and_rot.has_value()) {
+            // rotate global movement direction
+            auto theta = 0.0;
+            switch (this->global_movement_direction) {
+                case MOVEMENT_DIR_NORTH:
+                    theta = -L_PI / 2;
+                    break;
+                case MOVEMENT_DIR_SOUTH:
+                    theta = L_PI / 2;
+                    break;
+                case MOVEMENT_DIR_WEST:
+                    theta = L_PI;
+                    break;
+                default:
+                    break;
+            }
+
+            Eigen::Vector2d d(x, y);
+            Eigen::Matrix2d r;
+            r << cos(theta), -sin(theta), sin(theta), cos(theta);
+            auto rotated = r * d;
+            look_dir = r * look_dir;
+            x = rotated.x() / 2.0;
+            y = rotated.y() / 2.0;
+        }
+
+        // If in GetBall and controller was pressed, cancel GetBall
+        auto current_skill = this->robot_control.getSkill(robot);
+        if (current_skill != nullptr && current_skill->name != "ControllerGoToPoint") {
+            if (x != 0 || y != 0) this->robot_control.cancelTask(robot);
+        }
+
+        // Set skill if not already set
+        if (this->robot_control.getState(robot) != robot_control::RobotControllerState::RUNNING &&
+            this->robot_control.getState(robot) != robot_control::RobotControllerState::OUT_OF_FIELD) {
+            robot_control::TaskData task_data{robot};
+            task_data.required_positions.emplace_back(
+                transform::Position(robot.getFrame().append("_controller_position")));
+            task_data.required_positions.emplace_back(
+                transform::Position(robot.getFrame().append("_controller_heading")));
+            this->robot_control.setTask(&this->skill_lib.getSkill(skills::GameSkillNames::CONTROLLER_GO_TO_POINT),
+                                        task_data);
+        }
+
+        // Update target- and heading point
+        Eigen::Vector2d target_point = pos_and_rot->head<2>() + Eigen::Vector2d(x, y);
+        Eigen::Vector2d heading_point = pos_and_rot->head<2>() + Eigen::Vector2d(look_dir.x(), look_dir.y());
+        wm_push_pos_and_heading(this->gdp, robot, target_point, heading_point);
+
+        return;
+    } else if (global_movement) {
+        auto pos_and_rot = transform::RobotHandle(robot, gdp.getWorldModel()).getPosAndRotVec();
         if (pos_and_rot.has_value()) {
             double theta = -pos_and_rot->z();
+
+            // rotate global movement direction
+            switch (this->global_movement_direction) {
+                case MOVEMENT_DIR_NORTH:
+                    theta -= L_PI / 2;
+                    break;
+                case MOVEMENT_DIR_SOUTH:
+                    theta += L_PI / 2;
+                    break;
+                case MOVEMENT_DIR_WEST:
+                    theta += L_PI;
+                    break;
+                default:
+                    break;
+            }
+
             Eigen::Vector2d d(x, y);
             Eigen::Matrix2d r;
             r << cos(theta), -sin(theta), sin(theta), cos(theta);
@@ -616,18 +784,21 @@ void DataProxy::gamepadAxesInput(float x, float y, float rot, size_t id, bool gl
 
     rot = rotation_velocity * rot;
 
-    data.last_x = x;
-    data.last_y = y;
-    data.last_rot = rot;
-    // if (x == 0 && y == 0) return;
+    Eigen::Vector2d d(x, y);
+    d.normalize();
+    x = d.x();
+    y = d.y();
 
     x *= movement_velocity;
     y *= movement_velocity;
-    robot_interface::MoveCommand move_command = robot_interface::RobotVelocityControl{{x, y, rot}};
-    // LOG_INFO(logger, "Send command {}", robot_interface::RobotVelocityControl{{x, y, 1.0f}}.desired_velocity);
 
+    robot_interface::MoveCommand move_command = robot_interface::RobotVelocityControl{{x, y, rot}};
+
+    // logger.info("Send command {}", robot_interface::RobotVelocityControl{{x, y, 1.0f}}.desired_velocity);
+
+    setLocalPlannerDisabledForRobot(robot, true);
     this->robot_interface.updateMoveCommand(robot, move_command);
-}
+}  // namespace luhsoccer::luhviz
 
 PerRobotControlData& DataProxy::getPerRobotControlerData(RobotIdentifier selected_robot_id) {
     // get data for selected robot
@@ -724,7 +895,7 @@ void DataProxy::loadAllConfigs() {
             }
         }
     } catch (std::bad_cast& e) {
-        LOG_ERROR(logger, "{}", e.what());
+        logger.error("{}", e.what());
     }
 
     // sort all params in the map by the group and inside the same group by the key
@@ -747,7 +918,7 @@ bool DataProxy::executeScenario(int scenario_index, int repetitions) {
         std::advance(it, scenario_index);
         return this->scenario_executor.startScenario(it->second, repetitions);
     }
-    LOG_WARNING(logger, "the selected scenario with index {} is out of bounds", scenario_index);
+    logger.warning("the selected scenario with index {} is out of bounds", scenario_index);
     return false;
 }
 
@@ -760,23 +931,24 @@ std::string DataProxy::getAvailableScenariosAsString() {
            separator;
 }
 
-int DataProxy::getKickVoltage() const { return this->cap_voltage; }
-
 bool DataProxy::setLocalPlannerDisabledForRobot(const RobotIdentifier& robot, bool disabled) {
-    auto current_state = this->local_planner.getState(robot);
+    auto current_state = this->robot_control.getState(robot);
     if (current_state.has_value()) {
-        bool is_disabled = current_state.value() == local_planner::LocalPlanner::LocalPlannerState::OFFLINE;
+        bool is_disabled = current_state.value() == robot_control::RobotControllerState::OFFLINE;
         if (disabled != is_disabled) {
             // only disable/enable if its not already the case
-            return this->local_planner.setStateOfPlanner(robot, !disabled);
+            return this->robot_control.setControllerActive(robot, !disabled);
         }
     }
     return false;
 }
 
-void DataProxy::updateConfigParam(const std::string& key, std::unique_ptr<ConfigParam>& new_value) {
+void DataProxy::updateConfigParam(const std::string& config_name, const std::string& key,
+                                  std::unique_ptr<ConfigParam>& new_value) {
     try {
         for (auto& cfg : this->cs.getConfigs()) {
+            if (cfg->getConfigName().compare(config_name) != 0) continue;
+
             bool exit = false;
             auto& params = cfg->getParams();  // params map of the current config
             auto it = params.find(key);       // try to find the param with the key
@@ -824,14 +996,14 @@ void DataProxy::updateConfigParam(const std::string& key, std::unique_ptr<Config
                     break;
                 }
                 default:
-                    LOG_WARNING(logger, "problem with saving the config value");
+                    logger.warning("problem with saving the config value");
                     break;
             }
             // break loop to save performance if the values was already assigned
             if (exit) break;
         }
     } catch (std::bad_cast& e) {
-        LOG_ERROR(logger, "{}", e.what());
+        logger.error("{}", e.what());
     }
 }
 
@@ -847,9 +1019,9 @@ int DataProxy::getConfigInt(const std::string& config_name, const std::string& k
             }
         }
     } catch (std::bad_cast& e) {
-        LOG_ERROR(logger, "{}", e.what());
+        logger.error("{}", e.what());
     }
-    LOG_WARNING(logger, "could not find ConfigInt {} in config {}", key, config_name);
+    logger.warning("could not find ConfigInt {} in config {}", key, config_name);
     return 0;
 }
 
@@ -865,9 +1037,9 @@ float DataProxy::getConfigDouble(const std::string& config_name, const std::stri
             }
         }
     } catch (std::bad_cast& e) {
-        LOG_ERROR(logger, "{}", e.what());
+        logger.error("{}", e.what());
     }
-    LOG_WARNING(logger, "could not find ConfigDouble {} in config {}", key, config_name);
+    logger.warning("could not find ConfigDouble {} in config {}", key, config_name);
     return 0.0;
 }
 
@@ -883,9 +1055,9 @@ bool DataProxy::getConfigBool(const std::string& config_name, const std::string&
             }
         }
     } catch (std::bad_cast& e) {
-        LOG_ERROR(logger, "{}", e.what());
+        logger.error("{}", e.what());
     }
-    LOG_WARNING(logger, "could not find ConfigBool {} in config {}", key, config_name);
+    logger.warning("could not find ConfigBool {} in config {}", key, config_name);
     return false;
 }
 
@@ -901,9 +1073,9 @@ std::string DataProxy::getConfigString(const std::string& config_name, const std
             }
         }
     } catch (std::bad_cast& e) {
-        LOG_ERROR(logger, "{}", e.what());
+        logger.error("{}", e.what());
     }
-    LOG_WARNING(logger, "could not find ConfigString {} in config {}", key, config_name);
+    logger.warning("could not find ConfigString {} in config {}", key, config_name);
     return "";
 }
 
@@ -919,7 +1091,7 @@ void DataProxy::setConfigInt(const std::string& key, int value) {
             }
         }
     } catch (std::bad_cast& e) {
-        LOG_ERROR(logger, "{}", e.what());
+        logger.error("{}", e.what());
     }
 }
 
@@ -935,7 +1107,7 @@ void DataProxy::setConfigDouble(const std::string& key, double value) {
             }
         }
     } catch (std::bad_cast& e) {
-        LOG_ERROR(logger, "{}", e.what());
+        logger.error("{}", e.what());
     }
 }
 
@@ -951,7 +1123,7 @@ void DataProxy::setConfigBool(const std::string& key, bool value) {
             }
         }
     } catch (std::bad_cast& e) {
-        LOG_ERROR(logger, "{}", e.what());
+        logger.error("{}", e.what());
     }
 }
 
@@ -967,8 +1139,12 @@ void DataProxy::setConfigString(const std::string& key, const std::string& value
             }
         }
     } catch (std::bad_cast& e) {
-        LOG_ERROR(logger, "{}", e.what());
+        logger.error("{}", e.what());
     }
 }
+
+bool DataProxy::getChipperOn() { return this->chipper_on; }
+
+float& DataProxy::getKickVelocity() { return this->kick_velocity; }
 
 }  // namespace luhsoccer::luhviz

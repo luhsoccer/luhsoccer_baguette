@@ -1,40 +1,42 @@
 #pragma once
 #include "logger/logger.hpp"
-#include "robot_identifier.hpp"
+#include "core/robot_identifier.hpp"
 #include "time/time.hpp"
 #include "transform/world_model.hpp"
-#include "module.hpp"
-#include "local_planner/local_planner.hpp"
-#include "local_planner/local_planner_module.hpp"
-
-namespace luhsoccer::role_manager {
-class RoleManager;
-}
-
+#include "core/module.hpp"
+#include "transform/handles.hpp"
+#include "robot_control/skills/task_data.hpp"
+#include <variant>
 namespace luhsoccer::game_data_provider {
 class GameDataProvider;
 }
 
 namespace luhsoccer::skills {
 enum class BodSkillNames;
-class BodSkillBook;
+enum class GameSkillNames;
+enum class TestSkillNames;
+class SkillLibrary;
+
 }  // namespace luhsoccer::skills
 
+namespace luhsoccer::robot_control {
+class RobotControlModule;
+}
 namespace luhsoccer::observer {
 class Observer;
 }
 
 namespace luhsoccer::task_manager {
+using SkillNames = std::variant<skills::BodSkillNames, skills::GameSkillNames, skills::TestSkillNames>;
 
-using TaskCallback =
-    std::function<std::unordered_map<RobotIdentifier, std::pair<skills::BodSkillNames, local_planner::TaskData>>(
-        const std::vector<transform::RobotHandle>, const std::shared_ptr<const observer::Observer>,
-        const std::shared_ptr<const transform::WorldModel>)>;
+using TaskCallback = std::function<std::unordered_map<RobotIdentifier, std::pair<SkillNames, robot_control::TaskData>>(
+    const std::vector<transform::RobotHandle>, const std::shared_ptr<const observer::Observer>,
+    const std::shared_ptr<const transform::WorldModel>)>;
 
 class TaskManager : public BaguetteModule {
    public:
-    TaskManager(role_manager::RoleManager&, const game_data_provider::GameDataProvider&, const skills::BodSkillBook&,
-                local_planner::LocalPlannerModule&);
+    TaskManager(const game_data_provider::GameDataProvider&, const skills::SkillLibrary&,
+                robot_control::RobotControlModule&);
     TaskManager(const TaskManager&) = delete;
     TaskManager(TaskManager&&) = delete;
     TaskManager& operator=(const TaskManager&) = delete;
@@ -43,24 +45,24 @@ class TaskManager : public BaguetteModule {
 
     std::string_view moduleName() override { return "task_manager"; }
 
-    void loop(std::atomic_bool& should_run) override;
-    void registerCallback(const std::string& role, const TaskCallback& callback);
-    void stop() override;
-    void updateSkill(RobotIdentifier robot, skills::BodSkillNames skill, local_planner::TaskData data);
+    bool updateTask(SkillNames skill, robot_control::TaskData data, bool force = false);
+
+    std::optional<SkillNames> getLastSkill(const RobotIdentifier& robot) const;
+
+    std::optional<robot_control::TaskData> getLastTaskData(const RobotIdentifier& robot) const;
 
    private:
-    bool isTaskDataSame(const local_planner::TaskData& td1, const local_planner::TaskData& td2) const;
+    bool isTaskDataSame(const robot_control::TaskData& td1, const robot_control::TaskData& td2) const;
 
-    role_manager::RoleManager& role_manager;
     const game_data_provider::GameDataProvider& game_data_provider;
-    const skills::BodSkillBook& book;
-    local_planner::LocalPlannerModule& local_planner;
+    const skills::SkillLibrary& skill_library;
+    robot_control::RobotControlModule& robot_control;
     logger::Logger logger{"TaskManager"};
     std::mutex map_mutex;
     std::unordered_map<std::string, TaskCallback> task_callbacks;
-    std::unordered_map<RobotIdentifier, skills::BodSkillNames> last_skill;
-    std::unordered_map<RobotIdentifier, local_planner::TaskData> last_task_data;
-    static inline constexpr double TASK_MANAGER_FREQUENCY = 10.0;  // @todo change via config
+    std::unordered_map<RobotIdentifier, SkillNames> last_skill;
+    std::unordered_map<RobotIdentifier, robot_control::TaskData> last_task_data;
+    static inline constexpr double TASK_MANAGER_FREQUENCY = 20.0;  // @todo change via config
     time::Rate rate{TASK_MANAGER_FREQUENCY};
 };
 

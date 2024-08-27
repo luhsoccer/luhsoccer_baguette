@@ -9,8 +9,8 @@
 namespace luhsoccer::local_planner {
 TEST(condition_step, general) {
     std::string observe_frame = "observe_frame";
-    std::shared_ptr<AvoidanceManager> avoidance_manager = std::make_shared<AvoidanceManager>();
     std::shared_ptr<transform::WorldModel> wm = std::make_shared<transform::WorldModel>(observe_frame);
+    std::shared_ptr<AvoidanceManager> avoidance_manager = nullptr;
     local_planner::TaskData td(wm->getPossibleRobots().at(0));
 
     DoubleComponentParam duration_in_seconds(1.0);
@@ -42,7 +42,7 @@ TEST(condition_step, general) {
 TEST(condition_step, if_part) {
     DoubleComponentParam duration_in_seconds(1.0);
     std::string observe_frame = "observe_frame";
-    std::shared_ptr<AvoidanceManager> avoidance_manager = std::make_shared<AvoidanceManager>();
+    std::shared_ptr<AvoidanceManager> avoidance_manager = nullptr;
     std::shared_ptr<transform::WorldModel> wm = std::make_shared<transform::WorldModel>(observe_frame);
     local_planner::TaskData td(wm->getPossibleRobots().at(0));
 
@@ -76,7 +76,7 @@ TEST(condition_step, if_part) {
 TEST(condition_step, else_part) {
     DoubleComponentParam duration_in_seconds(1.0);
     std::string observe_frame = "observe_frame";
-    std::shared_ptr<AvoidanceManager> avoidance_manager = std::make_shared<AvoidanceManager>();
+    std::shared_ptr<AvoidanceManager> avoidance_manager = nullptr;
     std::shared_ptr<transform::WorldModel> wm = std::make_shared<transform::WorldModel>(observe_frame);
     local_planner::TaskData td(wm->getPossibleRobots().at(0));
 

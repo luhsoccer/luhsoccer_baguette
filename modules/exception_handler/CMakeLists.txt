@@ -26,12 +26,12 @@ set(
 # MSVC doesnt need libbacktrace
 if(NOT MSVC)
     message("Adding libbacktrace")
-    find_package(libbacktrace REQUIRED)
+    find_library(LIBBACKTRACE_LIBRARY NAMES backtrace libbacktrace REQUIRED)
     list(
         APPEND
         MODULES_TO_LINK
         
-        libbacktrace::libbacktrace
+        ${LIBBACKTRACE_LIBRARY}
    )
 endif()
 

@@ -1,8 +1,5 @@
 #include "luhconfig/include/luhconfig.hpp"
 
-#define IMGUI_DEFINE_MATH_OPERATORS
-#include "imgui_internal.h"
-
 namespace luhsoccer::luhviz {
 
 void LuhvizConfig::init() { this->reset_icon.create(this->reset_icon_path, false, true); }
@@ -235,7 +232,7 @@ void LuhvizConfig::render(bool* open) {
                                 break;
                         }
                     } catch (std::bad_cast& e) {
-                        LOG_ERROR(logger, "{}", e.what());
+                        logger.error("{}", e.what());
                     }
 
                     ImGui::PopItemWidth();
@@ -250,22 +247,30 @@ void LuhvizConfig::render(bool* open) {
                         const std::string b_id = "##resetToDefault_" + param->key;
                         if (ImGui::ImageButton(b_id.c_str(), this->reset_icon.getImguiId(), BUTTON_SIZE)) {
                             param->reset();
-                            this->data_proxy.updateConfigParam(param->key, param);
+                            this->data_proxy.updateConfigParam(param->config, param->key, param);
                             this->saved = false;
                         }
                     }
                 }
 
                 // button for resetting current config
-                constexpr ImVec2 BUTTON_OFFSET = {100, 30};
+                constexpr ImVec2 BUTTON_OFFSET = {150, 30};
                 ImGui::SetCursorPos({ImGui::GetWindowWidth() - BUTTON_OFFSET.x, BUTTON_OFFSET.y});
                 ImGui::BeginDisabled(!any_non_default);
                 if (ImGui::Button("Reset config")) {
                     for (auto& p : cfg.second) {
                         p->reset();
-                        this->data_proxy.updateConfigParam(p->key, p);
+                        this->data_proxy.updateConfigParam(p->config, p->key, p);
                         this->saved = false;
                     }
+                }
+                ImGui::EndDisabled();
+
+                // button for saving
+                ImGui::BeginDisabled(this->saved);
+                ImGui::SameLine();
+                if (ImGui::Button("Save")) {
+                    this->saveConfig();
                 }
                 ImGui::EndDisabled();
 
@@ -274,20 +279,6 @@ void LuhvizConfig::render(bool* open) {
         }
         ImGui::EndTabBar();
     }
-
-    const auto window_height = ImGui::GetWindowHeight();
-
-    // buttons
-    const float w = ImGui::GetWindowWidth();
-    const float button_offset_x = 60;
-    const float button_offset_y = 30;
-    // button for saving
-    ImGui::BeginDisabled(this->saved);
-    ImGui::SetCursorPos({w - button_offset_x, window_height - button_offset_y});
-    if (ImGui::Button("Save")) {
-        this->saveConfig();
-    }
-    ImGui::EndDisabled();
 
     ImGui::EndChild();
 
@@ -300,7 +291,7 @@ void LuhvizConfig::render(bool* open) {
                 if (!param->synced_with_config_provider) {
                     const std::string key = param->key;
                     param->synced_with_config_provider = true;
-                    this->data_proxy.updateConfigParam(key, param);
+                    this->data_proxy.updateConfigParam(param->config, key, param);
                 }
             }
         }
@@ -322,13 +313,13 @@ void LuhvizConfig::saveConfig() {
             if (!param->synced_with_config_provider) {
                 const std::string key = param->key;
                 param->synced_with_config_provider = true;
-                this->data_proxy.updateConfigParam(key, param);
+                this->data_proxy.updateConfigParam(param->config, key, param);
             }
         }
     }
     this->data_proxy.saveAllConfigs();
     this->saved = true;
-    LOG_INFO(logger, "Configs saved!");
+    logger.info("Configs saved!");
 }
 
 void LuhvizConfig::saveAtClose() {
@@ -339,7 +330,7 @@ void LuhvizConfig::saveAtClose() {
             if (!param->synced_with_config_provider) {
                 const std::string key = param->key;
                 param->synced_with_config_provider = true;
-                this->data_proxy.updateConfigParam(key, param);
+                this->data_proxy.updateConfigParam(param->config, key, param);
             }
         }
     }

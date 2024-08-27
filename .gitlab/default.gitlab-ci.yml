@@ -1,0 +1,253 @@
+version:
+  stage: version
+  image: python:3.11
+  variables:
+    GIT_DEPTH: 0
+  before_script:
+    - ""
+  after_script:
+    - ""
+  script:
+    - pip install semver python-gitlab
+    - python3 .gitlab/scripts/version-update.py
+    - ls -la
+  only:
+    - main
+
+  artifacts:
+    paths:
+      - baguette_version
+
+build:linux:
+  stage: build
+  needs: []
+  cache:
+    key: linux_build
+    paths:
+      - .cache/pip
+      - .cache/ccache
+      - .cache/vcpkg
+  script:
+    - apk add curl zip unzip perl
+    - apk upgrade
+    - pip install ninja
+    - ninja --version
+    - mkdir -p build
+    - cmake -B build -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DDISABLE_TESTS=true --preset="Release/gcc"
+    - ninja -C build
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - build/modules/python_bindings/_baguette_py.*
+
+build-python:windows:
+  stage: build
+  needs:
+    - job: tag-develop
+      artifacts: true
+      optional: true
+    - job: version
+      artifacts: true
+      optional: true
+  before_script:
+    - ""
+  after_script:
+    - ""
+  tags:
+    - windows
+  variables:
+    GIT_DEPTH: 0
+    CIBW_BUILD: "*-win_amd64"
+    CIBW_SKIP: "pp*"
+    VCPKG_DEFAULT_BINARY_CACHE: "C:/vcpkg_cache"
+    CIBW_CACHE_PATH: "C:/cibw"
+    POWERSHELL_TELEMETRY_OPTOUT: "1"
+    SKBUILD_CMAKE_ARGS: "--preset=RelWithDebInfo/MSVC;--fresh"
+  script:
+    - '& "C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\Common7\Tools\Launch-VsDevShell.ps1"'
+    - cl.exe
+    - cmd.exe /c "call `"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Auxiliary\Build\vcvarsall.bat`" amd64 && set > %temp%\vcvars.txt";
+    - >-
+      Get-Content "$env:temp\vcvars.txt" | Foreach-Object {
+        if ($_ -match "^([A-Za-z0-9_()]*)=(.*)$") {
+          Set-Content "env:\$($matches[1])" $matches[2];
+        }
+      }
+    - cl.exe
+    - pip install cibuildwheel==2.16.2
+    - cd ../../luhbots/luhsoccer_baguette
+    - pwd
+    - cibuildwheel --output-dir wheelhouse --platform windows
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - wheelhouse/
+  only:
+    - main
+    - develop
+
+build-python:linux:
+  stage: build
+  image: python:3.8
+  needs:
+    - job: tag-develop
+      artifacts: true
+      optional: true
+    - job: version
+      artifacts: true
+      optional: true
+  cache:
+    key: python_linux
+    paths:
+      - .cache/pip
+      - .cache/vcpkg
+  services:
+    - name: docker:dind
+      entrypoint: ["env", "-u", "DOCKER_HOST"]
+      command: ["dockerd-entrypoint.sh"]
+  variables:
+    GIT_DEPTH: 0
+    DOCKER_HOST: tcp://docker:2375/
+    DOCKER_DRIVER: overlay2
+    DOCKER_TLS_CERTDIR: ""
+    CIBW_BUILD: "*-manylinux_x86_64"
+    CIBW_SKIP: "pp*"
+    XDG_CACHE_HOME: "/host/$CI_PROJECT_DIR/.cache"
+    SKBUILD_CMAKE_ARGS: "--preset=RelWithDebInfo/gcc;--fresh"
+    CIBW_ENVIRONMENT_PASS_LINUX: "XDG_CACHE_HOME CCACHE_COMPILERCHECK CCACHE_SLOPPINESS CLICOLOR_FORCE CCACHE_BASEDIR SKBUILD_CMAKE_ARGS"
+  before_script:
+    - ""
+  after_script:
+    - ""
+  script:
+    - curl -sSL https://get.docker.com/ | sh
+    - python -m pip install cibuildwheel==2.16.2
+    - cibuildwheel --output-dir wheelhouse
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - wheelhouse/
+  only:
+    - main
+    - develop
+
+lint-cppcheck:linux:
+  stage: lint
+  needs: []
+  cache: []
+  script:
+    - pip install cppcheck-codequality
+    - cppcheck -j 8 --enable=all $(find modules -regex '.*\(include\|src\)$' | awk '$0="-I "$0') --xml --inconclusive --inline-suppr modules 2> cppcheck_out.xml
+    - cppcheck-codequality --input-file cppcheck_out.xml --output-file cppcheck.json
+  artifacts:
+    expire_in: 1 week
+    when: always
+    reports:
+      codequality: cppcheck.json
+
+test:linux:
+  stage: test
+  needs: []
+  cache:
+    key: linux_test
+    paths:
+      - .cache/pip
+      - .cache/ccache
+      - .cache/vcpkg
+  script:
+    - apk add curl zip unzip perl
+    - apk upgrade
+    - pip install ninja
+    - mkdir -p build
+    - cmake -B build -DCMAKE_CXX_COMPILER_LAUNCHER=ccache -DENABLE_TEST_COVERAGE=true --preset="Debug/gcc"
+    - ninja -C build test_coverage
+    - sed -i 's/filename=\"/filename=\"modules\//g' build/test_coverage.xml
+  coverage: /^\s*lines:\s*\d+.\d+\%/
+  artifacts:
+    expire_in: 1 week
+    when: always
+    paths:
+      - build/html
+    reports:
+      junit: build/test_detail.xml
+      coverage_report:
+        coverage_format: cobertura
+        path: build/test_coverage.xml
+
+test-python:linux:
+  stage: test
+  cache:
+    key: python_linux
+    paths:
+      - .cache/pip
+      - .cache/ccache
+      - .cache/vcpkg
+  services:
+    - name: registry.gitlab.com/luhbots/luhsoccer_baguette_er_sim:0.1.9
+      alias: er_sim
+      command:
+        ["-g", "2020B", "--realism", "RC2021", "--feedback", "local-velocity"]
+  variables:
+    BAGUETTE_C_SIMULATION_INTERFACE_P_ER_FORCE_SIMULATION_HOST: "er_sim"
+    BAGUETTE_HEADLESS: 1
+    SKBUILD_CMAKE_ARGS: "--preset=RelWithDebInfo/gcc"
+  script:
+    - apk add curl zip unzip perl
+    - apk upgrade
+    - pip install ninja
+    - ninja --version
+    - pip install numpy pytest pytest-forked
+    - pip install . -v --config-settings=cmake.define.DISABLE_STUBGEN=TRUE
+    - pytest --forked --junitxml=test_report.xml --cache-clear
+  artifacts:
+    expire_in: 1 day
+    reports:
+      junit: test_report.xml
+
+deploy-wheels:linux:
+  stage: deploy
+  cache: []
+  needs: ["build-python:windows", "build-python:linux", "test-python:linux"]
+  variables:
+    TWINE_PASSWORD: ${CI_JOB_TOKEN}
+    TWINE_USERNAME: gitlab-ci-token
+  script:
+    - apk add curl
+    - apk upgrade
+    - python3 -m pip install twine
+    - python3 -m twine upload --verbose --repository-url ${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/pypi wheelhouse/*
+  artifacts:
+    expire_in: 1 day
+    paths:
+      - wheelhouse/
+  only:
+    - main
+    - develop
+
+release:
+  # Use the predefined JReleaser Docker image
+  image: jreleaser/jreleaser-slim:v1.7.0
+  # Bind to `deploy` stage
+  stage: deploy
+  needs: ["version"]
+  # Set environment variables accordingly
+  before_script:
+    - ""
+  after_script:
+    - ""
+  variables:
+    JRELEASER_PROJECT_VERSION: 0.0.0
+    JRELEASER_GPG_PASSPHRASE: $GPG_PASSPHRASE
+    JRELEASER_GPG_PUBLIC_KEY: $GPG_PUBLIC_KEY
+    JRELEASER_GPG_SECRET_KEY: $GPG_SECRET_KEY
+    JRELEASER_GITLAB_USERNAME: $BOT_USERNAME
+    JRELEASER_GITLAB_TOKEN: $BOT_TOKEN
+    # Disable shallow cloning so that JReleaser can diff between tags
+    # to generate a changelog
+    GIT_DEPTH: 0
+  #  Execute JReleaser
+  script:
+    - export JRELEASER_PROJECT_VERSION=$(cat baguette_version)
+    - jreleaser full-release
+  only:
+    - main

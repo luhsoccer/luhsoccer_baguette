@@ -1,19 +1,28 @@
+[AvoidanceMode]
+angle_for_inverse = 2.35
+
+[Plotting]
+
+[defense_area]
+defense_area_margin_stop = 0.4
+
 [drive_step]
 setp_drive_min_relaxation_factor = 0.3
+side_decision_neighbour_distance = 0.8
 
 [feature_anti_target]
 
 [feature_cf_obstacle]
 feature_robot_obstacle_influence_distance = 2.0
 feature_robot_obstacle_k_ataka = 0.0
-feature_robot_obstacle_k_cf = 0.03
+feature_robot_obstacle_k_cf = 0.07
 
 [feature_obstacles]
-obstacle_collision_distance = 0.409
+obstacle_collision_distance = 0.4
 
 [feature_target]
-feature_target_k_g = 0.035
-feature_target_k_v = 0.01
+feature_target_k_g = 0.033
+feature_target_k_v = 0.013
 feature_turn_around_ball_k = 1.5
 feature_turn_around_ball_k_tab = 2.0
 
@@ -27,11 +36,15 @@ robot_acc_max_y = 7.0
 robot_brk_max_x = 7.0
 robot_brk_max_y = 7.0
 robot_vel_max_theta = 8.0
+robot_vel_max_x = 2.5
+robot_vel_max_y = 2.5
 
 [rotation]
 ball_x_vel_from_rotation = 0.025
 ball_y_vel_from_rotation = 0.037
 robot_moving_threshold = 1.0
-robot_vel_max_theta_while_moving = 2.0
-rotation_k_g = 0.2
-rotation_k_v = 0.025
+rotation_k_g = 0.149
+rotation_k_v = 0.043
+
+[stop_state]
+stop_state_min_ball_distance = 0.8

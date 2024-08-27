@@ -1,9 +1,9 @@
 #pragma once
 
-#include <iostream>
 #include <shared_mutex>
 #include <mutex>
 #include <memory>
+#include <functional>
 #include <toml++/toml.h>
 
 #include "logger/logger.hpp"
@@ -31,8 +31,8 @@ class ValueStorage {
     // TODO: check for min/max values ?
     virtual bool set(const T& new_val) {
         if (!this->writable) {
-            LOG_WARNING(logger::Logger("config_provider"), "Cant Set Value to '{}' because variable is not writable",
-                        new_val);
+            logger::Logger("config_provider")
+                .warning("Cant Set Value to '{}' because variable is not writable", new_val);
             return false;
         }
 
@@ -56,8 +56,12 @@ class ValueStorage {
 
     void forceSet(const T& new_val) {
         std::unique_lock<std::shared_mutex> exclusive_lock(s_mtx);
+        const T old_val = new_val;
         this->value = new_val;
         this->checkValueChangedFlag();
+        for (const auto& callback : this->callbacks) {
+            callback(old_val, new_val);
+        }
     }
 
     void setDefaultValue(const T& new_val) {
@@ -67,10 +71,15 @@ class ValueStorage {
 
     void checkValueChangedFlag() { this->value_changed = util::notEqual<T>(this->value, this->default_value); }
 
+    void registerCallback(std::function<void(const T& old_val, const T& new_val)>& callback) {
+        this->callbacks.emplace_back(callback);
+    }
+
    protected:
     T value;
     T default_value;
     bool value_changed = false;
+    std::vector<std::function<void(const T& old_val, const T& new_val)>> callbacks;
 
    private:
     bool writable;
@@ -91,9 +100,9 @@ class MinMaxValStorage : public ValueStorage<T> {
 
     bool set(const T& new_val) override {
         if (new_val < this->getMin() || new_val > this->getMax()) {
-            LOG_WARNING(logger::Logger("config_provider"),
-                        "The Given value '{}' was not in the min/max range of [ {}, {} ]", new_val, this->getMin(),
-                        this->getMax());
+            logger::Logger("config_provider")
+                .warning("The Given value '{}' was not in the min/max range of [ {}, {} ]", new_val, this->getMin(),
+                         this->getMax());
             return false;
         }
 

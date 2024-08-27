@@ -1,9 +1,14 @@
 #include "include/main_window.hpp"
-#include "portable-file-dialogs.h"
+
+#include "utils/utils.hpp"
+#include "config/game_config.hpp"
+#include <GLFW/glfw3.h>
 
 namespace luhsoccer::luhviz {
 
 void MainWindow::init() {
+    this->layout_handler.loadLayout();
+
     // setup icons for gamepad
     this->gamepad_disconnected_icon.create(icon_controller_disconnected, true, true);
     this->gamepad_connected_icon.create(icon_controller_connected, true, true);
@@ -36,14 +41,14 @@ void MainWindow::init() {
         this->proxy.setVisionPublishMode(this->vis_upstream_items[vis_upstream_index]);
     }
     // gamecontroller source
-    int gamecontroller_index = this->proxy.getConfigInt(luhviz_internal_config_name, "selected_gamelog_source");
+    int gamecontroller_index = this->proxy.getConfigInt(luhviz_internal_config_name, "selected_gamecontroller_source");
     if (gamecontroller_index < static_cast<int>(this->gamecontroller_items.size())) {
         this->proxy.setGameControllerDataSource(this->gamecontroller_items[gamecontroller_index]);
     }
 }
 
-void MainWindow::render(int fps, bool& parameter_settings_open, bool& skill_wizard_open, bool& robot_controller_open,
-                        bool& gc_window_open) {
+bool MainWindow::render(int fps, bool& parameter_settings_open, bool& skill_wizard_open, bool& robot_controller_open,
+                        bool& fullscreen) {
     this->fps = fps;
 
     viewport = ImGui::GetMainViewport();
@@ -60,21 +65,24 @@ void MainWindow::render(int fps, bool& parameter_settings_open, bool& skill_wiza
     ImGui::Begin("MainWindow", nullptr, window_flags);
 
     // Menu
-    renderMenu();
+    bool reload = renderMenu(fullscreen);
 
     // Toolbar
-    renderToolbar(parameter_settings_open, skill_wizard_open, robot_controller_open, gc_window_open);
+    renderToolbar(parameter_settings_open, skill_wizard_open, robot_controller_open, fullscreen);
     ImGui::DockSpace(ImGui::GetID("MainDockSpace"), ImVec2(viewport->Size.x, viewport->Size.y - BOTTOM_BAR_HEIGHT));
 
     // Bottombar
-    renderBottomBar(robot_controller_open);
+    renderBottomBar();
 
     ImGui::End();
     ImGui::PopStyleColor();
     ImGui::PopStyleColor();
+
+    return reload;
 }
 
-void MainWindow::renderMenu() {
+bool MainWindow::renderMenu(bool& fullscreen) {
+    bool reload = false;
     constexpr float MARGIN = 5;
     if (ImGui::BeginMainMenuBar()) {
         if (ImGui::BeginMenu("Shortcuts")) {
@@ -97,11 +105,19 @@ void MainWindow::renderMenu() {
             }
             ImGui::Spacing();
             ImGui::SetCursorPosX(ImGui::GetCursorPosX() + MARGIN);
-            if (ImGui::MenuItem("set point/execute skill", "x", false, false)) {
+            if (ImGui::MenuItem("Teleport Snapping", "CTRL", false, false)) {
+            }
+            ImGui::Spacing();
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + MARGIN);
+            if (ImGui::MenuItem("Set point/execute skill", "x", false, false)) {
             }
             ImGui::Spacing();
             ImGui::SetCursorPosX(ImGui::GetCursorPosX() + MARGIN);
             if (ImGui::MenuItem("Cancel teleport/skill", "ESC", false, false)) {
+            }
+            ImGui::Spacing();
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + MARGIN);
+            if (ImGui::MenuItem("Measure distance", "m", false, false)) {
             }
             ImGui::Separator();
             ImGui::Spacing();
@@ -113,6 +129,54 @@ void MainWindow::renderMenu() {
             if (ImGui::MenuItem("Close luhviz", "CTRL + q", false, false)) {
             }
             ImGui::Spacing();
+            ImGui::SetCursorPosX(ImGui::GetCursorPosX() + MARGIN);
+            if (ImGui::MenuItem("Toggle RenderView Fullscreen", "STRG + ENTER", false, false)) {
+            }
+            ImGui::Spacing();
+            ImGui::EndMenu();
+        }
+
+        if (ImGui::BeginMenu("Layout")) {
+            if (ImGui::MenuItem("Default Layout")) {
+                this->layout_handler.setDefaultLayout();
+                reload = true;
+            }
+            if (ImGui::MenuItem("Toggle Fullscreen")) {
+                fullscreen = this->layout_handler.setFullscreen(!fullscreen);
+            }
+            if (ImGui::BeginMenu("Open Window")) {
+                if (ImGui::MenuItem("RenderView")) {
+                    this->layout_handler.getRenderViewOpen() = true;
+                }
+                if (ImGui::MenuItem("Inspector")) {
+                    this->layout_handler.getInspectorOpen() = true;
+                }
+                if (ImGui::MenuItem("Console")) {
+                    this->layout_handler.getConsoleOpen() = true;
+                }
+                if (ImGui::MenuItem("Manipulator")) {
+                    this->layout_handler.getManipulatorOpen() = true;
+                }
+                if (ImGui::MenuItem("GameInfo")) {
+                    this->layout_handler.getGameInfoOpen() = true;
+                }
+                if (ImGui::MenuItem("GameLog")) {
+                    this->layout_handler.getGameLogOpen() = true;
+                }
+                if (ImGui::MenuItem("SoftwareManager")) {
+                    this->layout_handler.getSoftwareManagerOpen() = true;
+                }
+                if (ImGui::MenuItem("RobertDisplay")) {
+                    this->layout_handler.getRobertDisplayOpen() = true;
+                }
+                if (ImGui::MenuItem("InfoDisplay")) {
+                    this->layout_handler.getInfoDisplayOpen() = true;
+                }
+                if (ImGui::MenuItem("Plotter")) {
+                    this->layout_handler.getPlotterOpen() = true;
+                }
+                ImGui::EndMenu();
+            }
             ImGui::EndMenu();
         }
 
@@ -120,19 +184,19 @@ void MainWindow::renderMenu() {
             ImGui::Spacing();
             ImGui::SetCursorPosX(ImGui::GetCursorPosX() + MARGIN);
             if (ImGui::MenuItem("Load SSL-Log")) {
-                auto selection = pfd::open_file("Load SSL Game-Log", "").result();
+                auto selection = openFile("Load SSL Game-Log", "");
                 if (!selection.empty()) {
                     this->proxy.setLogFilePath(selection.front());
-                    LOG_INFO(logger, "Loaded SSL Logfile: {}", selection.front());
+                    logger.info("Loaded SSL Logfile: {}", selection.front());
                 }
             }
             ImGui::Spacing();
             ImGui::SetCursorPosX(ImGui::GetCursorPosX() + MARGIN);
             if (ImGui::MenuItem("Load Luhviz-Log")) {
-                auto selection = pfd::open_file("Load Luhviz Game-Log", "", {".luhviz"}).result();
+                auto selection = openFile("Load Luhviz Game-Log", "", {".luhviz"});
                 if (!selection.empty()) {
                     this->proxy.setLogFilePath(selection.front());
-                    LOG_INFO(logger, "Loaded SSL Logfile: {}", selection.front());
+                    logger.info("Loaded SSL Logfile: {}", selection.front());
                 }
             }
             ImGui::Spacing();
@@ -141,10 +205,11 @@ void MainWindow::renderMenu() {
 
         ImGui::EndMainMenuBar();
     }
+    return reload;
 }
 
 void MainWindow::renderToolbar(bool& parameter_settings_open, bool& skill_wizard_open, bool& robot_controller_open,
-                               bool& gc_window_open) {
+                               bool& fullscreen) {
     ImGuiIO& io = ImGui::GetIO();
 
     ImGui::SameLine();
@@ -155,12 +220,12 @@ void MainWindow::renderToolbar(bool& parameter_settings_open, bool& skill_wizard
     }
     if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", "Open the Parameter Configuration.\nShortcut: 'p' ");
 
-    ImGui::SameLine();
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + OFFSET);
-    if (ImGui::Button("Skill Wizard")) {
-        skill_wizard_open = !skill_wizard_open;
-    }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", "Open the Skill Wizard to change or add skills.");
+    // ImGui::SameLine();
+    // ImGui::SetCursorPosY(ImGui::GetCursorPosY() + OFFSET);
+    // if (ImGui::Button("Skill Wizard")) {
+    //     skill_wizard_open = !skill_wizard_open;
+    // }
+    // if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", "Open the Skill Wizard to change or add skills.");
 
     ImGui::SameLine();
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + OFFSET);
@@ -172,47 +237,113 @@ void MainWindow::renderToolbar(bool& parameter_settings_open, bool& skill_wizard
 
     ImGui::SameLine();
     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + OFFSET);
-    if (ImGui::Button("GC Window")) {
-        gc_window_open = !gc_window_open;
+    if (ImGui::Button("Measure Distance")) {
+        if (this->proxy.getMeasurePoints().size() > 1) {
+            this->proxy.getMeasurePoints().clear();
+        }
+        this->proxy.getManipulationMode() = ManipulationMode::MEASURE;
     }
-    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", "Open the GC window to start/stop the game controller.");
+    if (ImGui::IsItemHovered())
+        ImGui::SetTooltip("%s",
+                          "Choose 2 points and the shortest distance between them will be calculated and displayed.");
 
+    ImGui::SameLine();
+    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + OFFSET);
+    if (ImGui::Button("Make Window Game Size")) {
+        glfwSetWindowSize(window, this->proxy.getConfigInt("luhviz", "game_mode_width"),
+                          this->proxy.getConfigInt("luhviz", "game_mode_height"));
+    }
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("%s", "Make the window the size configure in the parameter editor.");
     // Renderview action Buttons
-    updateInput();
+    updateInput(fullscreen);
 
     // SSL Log Player Controls
-    constexpr ImVec2 BUTTON_SIZE{16, 16};
-    constexpr int X_OFFSET = 30;
-    ImGui::SameLine();
-    ImGui::SetCursorPos({ImGui::GetCursorPosX() + X_OFFSET, ImGui::GetCursorPosY() + OFFSET});
-    ImGui::Text("Game-Log player: ");
-    ImGui::SameLine();
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + OFFSET);
-    if (ImGui::ImageButton(this->rewind_icon.getImguiId(), BUTTON_SIZE)) {
-    }
-    GLTexture& play_pause_icon = this->log_playing ? this->pause_icon : this->play_icon;
-    ImGui::SameLine();
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + OFFSET);
-    if (ImGui::ImageButton(play_pause_icon.getImguiId(), BUTTON_SIZE)) {
-        this->log_playing = !this->log_playing;
-    }
-    ImGui::SameLine();
-    ImGui::SetCursorPosY(ImGui::GetCursorPosY() + OFFSET);
-    if (ImGui::ImageButton(this->stop_icon.getImguiId(), BUTTON_SIZE)) {
-    }
+    // constexpr ImVec2 BUTTON_SIZE{16, 16};
+    // constexpr int X_OFFSET = 30;
+    // ImGui::SameLine();
+    // ImGui::SetCursorPos({ImGui::GetCursorPosX() + X_OFFSET, ImGui::GetCursorPosY() + OFFSET});
+    // ImGui::Text("Game-Log player: ");
+    // ImGui::SameLine();
+    // ImGui::SetCursorPosY(ImGui::GetCursorPosY() + OFFSET);
+    // if (ImGui::ImageButton(this->rewind_icon.getImguiId(), BUTTON_SIZE)) {
+    // }
+    // GLTexture& play_pause_icon = this->log_playing ? this->pause_icon : this->play_icon;
+    // ImGui::SameLine();
+    // ImGui::SetCursorPosY(ImGui::GetCursorPosY() + OFFSET);
+    // if (ImGui::ImageButton(play_pause_icon.getImguiId(), BUTTON_SIZE)) {
+    //     this->log_playing = !this->log_playing;
+    // }
+    // ImGui::SameLine();
+    // ImGui::SetCursorPosY(ImGui::GetCursorPosY() + OFFSET);
+    // if (ImGui::ImageButton(this->stop_icon.getImguiId(), BUTTON_SIZE)) {
+    // }
 
-    // display file name
-    if (this->proxy.getLogFilePath().has_value()) {
-        ImGui::SameLine();
-        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + OFFSET);
-        std::string loaded_file = "File: " + this->proxy.getLogFilePath().value();
-        ImGui::Text(loaded_file.c_str());
-    }
+    // // display file name
+    // if (this->proxy.getLogFilePath().has_value()) {
+    //     ImGui::SameLine();
+    //     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + OFFSET);
+    //     std::string loaded_file = "File: " + this->proxy.getLogFilePath().value();
+    //     ImGui::Text(loaded_file.c_str());
+    // }
 
     ImGui::Separator();
 }
 
-void MainWindow::renderSourceSelector() {
+int MainWindow::renderSourcePresetSelector() {
+    int saved_index = this->proxy.getConfigInt(luhviz_internal_config_name, "selected_source_preset");
+    int default_index = saved_index >= static_cast<int>(source_presets.size()) ? 0 : saved_index;
+    static std::string current_preset = source_presets[default_index];
+
+    ImGui::TextColored(proxy.accent_text_color, "Source Preset:");
+    ImGui::SameLine();
+
+    const float width = Utils::getMaxItemSize(source_presets, 30).x;
+    ImGui::SetNextItemWidth(width);
+    int index = default_index;
+    if (ImGui::BeginCombo("##P", current_preset.c_str())) {
+        for (const auto& item : source_presets) {
+            bool is_selected = (current_preset == item);
+            if (ImGui::Selectable(item.c_str(), is_selected)) current_preset = item;
+            if (is_selected) {
+                ImGui::SetItemDefaultFocus();
+            }
+        }
+        ImGui::EndCombo();
+
+        auto it = find(source_presets.begin(), source_presets.end(), current_preset);
+        index = static_cast<int>(it - source_presets.begin());
+
+        // set values according to chosen preset
+        if (current_preset.compare("Simulation") == 0) {
+            proxy.setVisionSource("Simulation");
+            this->proxy.setConfigInt("selected_vision_source", 3);
+            proxy.setGameControllerDataSource("Network");
+            this->proxy.setConfigInt("selected_gamecontroller_source", 1);
+            proxy.setSimulationConnection("ErForce-Simulation");
+            this->proxy.setConfigInt("selected_simulation_connector", 2);
+            proxy.setRobotConnection("Simulation");
+            this->proxy.setConfigInt("selected_robot_connector", 4);
+            proxy.setVisionPublishMode("Disabled");
+            this->proxy.setConfigInt("selected_vision_upstream", 0);
+        } else if (current_preset.compare("Real") == 0) {
+            proxy.setVisionSource("Network");
+            this->proxy.setConfigInt("selected_vision_source", 2);
+            proxy.setGameControllerDataSource("Network");
+            this->proxy.setConfigInt("selected_gamecontroller_source", 1);
+            proxy.setSimulationConnection("None");
+            this->proxy.setConfigInt("selected_simulation_connector", 0);
+            proxy.setRobotConnection("Network");
+            this->proxy.setConfigInt("selected_robot_connector", 1);
+            proxy.setVisionPublishMode("Disabled");
+            this->proxy.setConfigInt("selected_vision_upstream", 0);
+        }
+    }
+    this->proxy.setConfigInt("selected_source_preset", index);
+
+    return index;
+}
+
+void MainWindow::renderSourceSelector(bool custom) {
     int saved_index = this->proxy.getConfigInt(luhviz_internal_config_name, "selected_vision_source");
     int default_index = saved_index >= static_cast<int>(vision_items.size()) ? 0 : saved_index;
     static std::string current_vision_source = vision_items[default_index];
@@ -223,9 +354,11 @@ void MainWindow::renderSourceSelector() {
         int index = static_cast<int>(it - vision_items.begin());
         current_vision_source = vision_items[index];
 
+        ImGui::SameLine();
         ImGui::TextColored(proxy.accent_text_color, "Vision Source:");
         ImGui::SameLine();
 
+        ImGui::BeginDisabled(!custom);
         const float width = Utils::getMaxItemSize(vision_items, 30).x;
         ImGui::SetNextItemWidth(width);
         if (ImGui::BeginCombo("##VS", current_vision_source.c_str())) {
@@ -240,11 +373,12 @@ void MainWindow::renderSourceSelector() {
 
             proxy.setVisionSource(current_vision_source);
         }
+        ImGui::EndDisabled();
         this->proxy.setConfigInt("selected_vision_source", index);
     }
 }
 
-void MainWindow::renderRobotConnectionSelector() {
+void MainWindow::renderRobotConnectionSelector(bool custom) {
     int saved_index = this->proxy.getConfigInt(luhviz_internal_config_name, "selected_robot_connector");
     int default_index = saved_index >= static_cast<int>(robot_conn_items.size()) ? 0 : saved_index;
     static std::string current_robot_conn = robot_conn_items[default_index];
@@ -259,6 +393,7 @@ void MainWindow::renderRobotConnectionSelector() {
         ImGui::TextColored(proxy.accent_text_color, "Robot Connector:");
         ImGui::SameLine();
 
+        ImGui::BeginDisabled(!custom);
         const float width = Utils::getMaxItemSize(robot_conn_items, 30).x;
         ImGui::SetNextItemWidth(width);
         if (ImGui::BeginCombo("##RC", current_robot_conn.c_str())) {
@@ -273,11 +408,12 @@ void MainWindow::renderRobotConnectionSelector() {
 
             proxy.setRobotConnection(current_robot_conn);
         }
+        ImGui::EndDisabled();
         this->proxy.setConfigInt("selected_robot_connector", index);
     }
 }
 
-void MainWindow::renderSimulationConnectorSelector() {
+void MainWindow::renderSimulationConnectorSelector(bool custom) {
     int saved_index = this->proxy.getConfigInt(luhviz_internal_config_name, "selected_simulation_connector");
     int default_index = saved_index >= static_cast<int>(sim_conn_items.size()) ? 0 : saved_index;
     static std::string current_sim_connector = sim_conn_items[default_index];
@@ -292,6 +428,7 @@ void MainWindow::renderSimulationConnectorSelector() {
         ImGui::TextColored(proxy.accent_text_color, "Simulation Connector:");
         ImGui::SameLine();
 
+        ImGui::BeginDisabled(!custom);
         const float width = Utils::getMaxItemSize(sim_conn_items, 30).x;
         ImGui::SetNextItemWidth(width);
         if (ImGui::BeginCombo("##SIM", current_sim_connector.c_str())) {
@@ -306,11 +443,12 @@ void MainWindow::renderSimulationConnectorSelector() {
 
             proxy.setSimulationConnection(current_sim_connector);
         }
+        ImGui::EndDisabled();
         this->proxy.setConfigInt("selected_simulation_connector", index);
     }
 }
 
-void MainWindow::renderVisionUpstreamSelector() {
+void MainWindow::renderVisionUpstreamSelector(bool custom) {
     int saved_index = this->proxy.getConfigInt(luhviz_internal_config_name, "selected_vision_upstream");
     int default_index = saved_index >= static_cast<int>(vis_upstream_items.size()) ? 0 : saved_index;
     static std::string current_upstream_mode = vis_upstream_items[default_index];
@@ -325,6 +463,7 @@ void MainWindow::renderVisionUpstreamSelector() {
         ImGui::TextColored(proxy.accent_text_color, "Vision Upstream:");
         ImGui::SameLine();
 
+        ImGui::BeginDisabled(!custom);
         const float width = Utils::getMaxItemSize(vis_upstream_items, 30).x;
         ImGui::SetNextItemWidth(width);
         if (ImGui::BeginCombo("##SC", current_upstream_mode.c_str())) {
@@ -339,12 +478,13 @@ void MainWindow::renderVisionUpstreamSelector() {
 
             proxy.setVisionPublishMode(current_upstream_mode);
         }
+        ImGui::EndDisabled();
         this->proxy.setConfigInt("selected_vision_upstream", index);
     }
 }
 
-void MainWindow::renderGamelogDataSelector() {
-    int saved_index = this->proxy.getConfigInt(luhviz_internal_config_name, "selected_gamelog_source");
+void MainWindow::renderGameControllerDataSelector(bool custom) {
+    int saved_index = this->proxy.getConfigInt(luhviz_internal_config_name, "selected_gamecontroller_source");
     int default_index = saved_index >= static_cast<int>(gamecontroller_items.size()) ? 0 : saved_index;
     static std::string current_gamedata_source = gamecontroller_items[default_index];
 
@@ -358,6 +498,7 @@ void MainWindow::renderGamelogDataSelector() {
         ImGui::TextColored(proxy.accent_text_color, "GC Selector:");
         ImGui::SameLine();
 
+        ImGui::BeginDisabled(!custom);
         const float width = Utils::getMaxItemSize(gamecontroller_items, 30).x;
         ImGui::SetNextItemWidth(width);
         if (ImGui::BeginCombo("##GS", current_gamedata_source.c_str())) {
@@ -372,11 +513,12 @@ void MainWindow::renderGamelogDataSelector() {
 
             proxy.setGameControllerDataSource(current_gamedata_source);
         }
-        this->proxy.setConfigInt("selected_gamelog_source", index);
+        ImGui::EndDisabled();
+        this->proxy.setConfigInt("selected_gamecontroller_source", index);
     }
 }
 
-void MainWindow::renderBottomBar(bool& robot_controller_open) {
+void MainWindow::renderBottomBar() {
     constexpr ImVec4 PRIMARY_COLOR_BLUE = {0.0f, 0.4666666686534882f, 0.7843137383460999f, 1.0f};
     constexpr ImVec4 PRIMARY_COLOR_YELLOW = {1.0f, 1.0f, 0.0f, 1.0f};
 
@@ -389,11 +531,13 @@ void MainWindow::renderBottomBar(bool& robot_controller_open) {
 
     ImGui::BeginChild("BottomBar", {viewport->Size.x, BOTTOM_BAR_HEIGHT}, true);
 
-    renderSourceSelector();
-    renderSimulationConnectorSelector();
-    renderRobotConnectionSelector();
-    renderVisionUpstreamSelector();
-    renderGamelogDataSelector();
+    auto selected_preset = renderSourcePresetSelector();
+    bool custom = source_presets[selected_preset].compare("Custom") == 0;
+    renderSourceSelector(custom);
+    renderSimulationConnectorSelector(custom);
+    renderRobotConnectionSelector(custom);
+    renderVisionUpstreamSelector(custom);
+    renderGameControllerDataSelector(custom);
 
     std::stringstream stream;
     stream << std::fixed << std::setprecision(1) << time::timeSinceStart().asSec();
@@ -404,7 +548,11 @@ void MainWindow::renderBottomBar(bool& robot_controller_open) {
     ImGui::SetCursorPos({viewport->Size.x - size.x - 50, ImGui::GetCursorPosY() + 2});
     ImGui::SameLine();
     ImGui::SetCursorPosX(viewport->Size.x - size.x - 50);
-    ImGui::Text("%s", text.c_str());
+    if (color_blue) {
+        ImGui::TextColored(ImVec4(1, 1, 1, 1), "%s", text.c_str());
+    } else {
+        ImGui::TextColored(ImVec4(0, 0, 0, 1), "%s", text.c_str());
+    }
 
     ImGui::SameLine();
     std::string conti_count = std::to_string(this->proxy.getGamepadCount());
@@ -428,7 +576,7 @@ void MainWindow::renderBottomBar(bool& robot_controller_open) {
     ImGui::PopStyleColor();
 }
 
-void MainWindow::updateInput() {
+void MainWindow::updateInput(bool& fullscreen) {
     const ImGuiIO& io = ImGui::GetIO();
 
     // teleport function
@@ -464,9 +612,24 @@ void MainWindow::updateInput() {
         }
     }
 
+    // measure tool
+    else if (ImGui::IsKeyPressed(ImGuiKey_M)) {
+        if (this->proxy.getManipulationMode() == ManipulationMode::SELECT) {
+            if (this->proxy.getMeasurePoints().size() > 1) this->proxy.getMeasurePoints().clear();
+            this->proxy.getManipulationMode() = ManipulationMode::MEASURE;
+        }
+    }
+
+    // toggle fullscreen
+    else if (ImGui::IsKeyDown(ImGuiKey_LeftCtrl) && ImGui::IsKeyPressed(ImGuiKey_Enter)) {
+        fullscreen = !fullscreen;
+    }
+
     else if (ImGui::IsKeyPressed(ImGuiKey_Escape)) {
         this->proxy.getManipulationMode() = ManipulationMode::SELECT;
+        this->proxy.getMeasurePoints().clear();
     }
 }
 
+WindowLayoutHandler& MainWindow::getWindowLayoutHandler() { return this->layout_handler; }
 }  // namespace luhsoccer::luhviz

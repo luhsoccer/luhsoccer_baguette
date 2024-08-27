@@ -3,12 +3,15 @@ set(MODULE_NAME
 )
 
 add_library(${MODULE_NAME} STATIC
-    src/simulation_interface.cpp
     include/${MODULE_NAME}/simulation_interface.hpp
+    src/simulation_interface.cpp
     include/${MODULE_NAME}/simulation_connector.hpp
+    src/simulation_connector.cpp
     src/simulations/test_simulation_connector.hpp
     src/simulations/erforce_simulation_connector.hpp
     src/simulations/erforce_simulation_connector.cpp
+    src/simulations/er_sim_connector.cpp
+    src/simulations/er_sim_connector.hpp
 )
 
     
@@ -20,7 +23,9 @@ target_link_libraries(${MODULE_NAME}
     asio::asio
     luhsoccer_baguette_protobuf
     config_provider
+    vision_processor
     PUBLIC
+    event_system
     Eigen3::Eigen
     logger
     time

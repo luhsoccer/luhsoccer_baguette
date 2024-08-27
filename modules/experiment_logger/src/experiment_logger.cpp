@@ -70,9 +70,8 @@ bool ExperimentLogger::startExperiment(std::string name, std::string experiment_
 bool ExperimentLogger::endExperiment(bool discard) {
     if (!this->experiment_running) return false;
     this->experiment_running = false;
-    LOG_INFO(this->logger, "Experiment stoped recorded {:d} data points on {:d} tracks",
-             this->experiment_data.data.size(),
-             this->experiment_data.data.size() > 0 ? this->experiment_data.data[0].size() : 0);
+    this->logger.info("Experiment stoped recorded {:d} data points on {:d} tracks", this->experiment_data.data.size(),
+                      this->experiment_data.data.size() > 0 ? this->experiment_data.data[0].size() : 0);
     if (this->experiment_data.data.size() < 2 || this->experiment_data.data[0].size() < 1) return false;
     if (!discard) {
         // analyze path
@@ -140,8 +139,8 @@ bool ExperimentLogger::endExperiment(bool discard) {
             result_stream << "\n";
         }
         result_stream.close();
-        LOG_INFO(this->logger, "Experiment with name '{}' was saved to file {}!", this->experiment_data.name,
-                 std::filesystem::absolute(this->experiment_data.experiment_file).string());
+        this->logger.info("Experiment with name '{}' was saved to file {}!", this->experiment_data.name,
+                          std::filesystem::absolute(this->experiment_data.experiment_file).string());
     }
 
     // cleanup

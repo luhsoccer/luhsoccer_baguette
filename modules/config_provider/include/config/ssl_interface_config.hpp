@@ -21,6 +21,10 @@ struct SSLInterfaceConfig : public Config {
     IntParam ignore_camera = createIntParam(
         "ignore_camera", "The id of the camera whose vision packets should be thrown away (-1 to ignore no camera)",
         "general", -1);
+
+    IntParam ignore_side =
+        createIntParam("ignore_side", "Which side of camera data to ignore (+1=positive halve; -1=negative halve)",
+                       "vision_data_filtering", 0, -1, 1);
 };
 
 }  // namespace luhsoccer::config_provider

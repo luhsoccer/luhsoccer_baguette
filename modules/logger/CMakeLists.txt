@@ -4,15 +4,20 @@ set(MODULE_NAME
 
 add_library(${MODULE_NAME} STATIC
     src/logger.cpp
+    src/gui_callback.cpp
     include/${MODULE_NAME}/logger.hpp
-    include/${MODULE_NAME}/gui_sink.hpp)
+    include/${MODULE_NAME}/gui_callback.hpp
+)
 
 find_package(spdlog REQUIRED)
+find_package(MPMCQueue REQUIRED)
 
-target_link_libraries(${MODULE_NAME} PUBLIC
-    spdlog::spdlog
-    MPMCQueue::MPMCQueue
+target_link_libraries(${MODULE_NAME}
+    PUBLIC
+    fmt::fmt
     PRIVATE
+    MPMCQueue::MPMCQueue
+    spdlog::spdlog
     utils
 )
 

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <iostream>
 #include <utility>
 #include "imgui.h"
 #include "marker_service/marker_service.hpp"
@@ -37,7 +36,7 @@ class Inspector {
     // ----- members -----
     // ----- methods -----
     void init();
-    void render();
+    void render(bool& open);
 
     /**
      * @brief Create the marker namespaces structure from the luhviz_markers for rendering
@@ -51,7 +50,7 @@ class Inspector {
      *
      * @param luhviz_markers
      */
-    void filterMarkers(marker::LuhvizMarkers& luhviz_markers) const;
+    void filterMarkers(marker::LuhvizMarkers& luhviz_markers, bool inspector_visible) const;
 
    private:
     // ----- members -----

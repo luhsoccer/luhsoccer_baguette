@@ -1,9 +1,10 @@
 #include "bindings.hpp"
+#include "core/events.hpp"
 
 namespace luhsoccer::python {
 
 template <>
-void bindClass(py::class_<RobotIdentifier>& instance) {
+void bindClass(nb::class_<RobotIdentifier>& instance) {
     instance.def("getTeam", &RobotIdentifier::getTeam);
     instance.def("isAlly", &RobotIdentifier::isAlly);
     instance.def("isEnemy", &RobotIdentifier::isEnemy);
@@ -17,15 +18,9 @@ void bindClass(py::class_<RobotIdentifier>& instance) {
 }
 
 template <>
-void bindEnum(py::enum_<Team>& instance) {
-    instance.value("Ally", Team::ALLY);
-    instance.value("Enemy", Team::ENEMY);
-}
+void bindDerivedClass(nb::class_<StopEvent, event_system::Event>& /*instance*/) {}
 
 template <>
-void bindEnum(py::enum_<TeamColor>& instance) {
-    instance.value("Blue", TeamColor::BLUE);
-    instance.value("Yellow", TeamColor::YELLOW);
-}
+void bindDerivedClass(nb::class_<StartEvent, event_system::Event>& /*instance*/) {}
 
 }  // namespace luhsoccer::python

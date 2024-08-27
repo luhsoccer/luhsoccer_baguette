@@ -3,21 +3,22 @@
 #include "scenario/scenario_executor.hpp"
 #include "scenario/scenario_book.hpp"
 #include "robot_interface/robot_interface.hpp"
+#include "robot_control/robot_control_module.hpp"
 namespace luhsoccer::scenario {
 
 // #define STATIC_MODE
-const Scenario& ScenarioExecutor::scenario = book::SWITCH;
+// const Scenario& ScenarioExecutor::scenario = book::SWITCH;
 // const std::string STRATEGY_NAME = "coop-";
 
 ScenarioExecutor::ScenarioExecutor(std::shared_ptr<const transform::WorldModel> wm,
                                    simulation_interface::SimulationInterface& simulation_interface,
-                                   local_planner::LocalPlannerModule& local_planner_module, marker::MarkerService& ms,
-                                   const skills::BodSkillBook& skill_book,
+                                   robot_control::RobotControlModule& robot_control_module, marker::MarkerService& ms,
+                                   const skills::SkillLibrary& skill_lib,
                                    const robot_interface::RobotInterface& robot_interface)
     : wm(std::move(wm)),
       simulation_interface(simulation_interface),
-      local_planner_module(local_planner_module),
-      skill_book(skill_book),
+      robot_control_module(robot_control_module),
+      skill_library(skill_lib),
       robot_interface(robot_interface),
       state(State::IDLE),
       exp_logger(ms, "experiment_logs") {}
@@ -34,7 +35,7 @@ void ScenarioExecutor::cancelScenario() {
     if (this->state != State::RUNNING) return;
     this->state = State::IDLE;
     if (!this->current_scenario.has_value()) return;
-    this->current_scenario->stop(this->local_planner_module);
+    this->current_scenario->stop(this->robot_control_module);
 }
 
 void ScenarioExecutor::loop(std::atomic_bool& should_run) {
@@ -48,24 +49,22 @@ void ScenarioExecutor::loop(std::atomic_bool& should_run) {
 #endif
     if (this->state == State::SCENARIO_REQUESTED && this->current_scenario.has_value()) {
         this->executeScenario(should_run, this->current_scenario.value());
-        if (this->state == State::RUNNING) this->state = State::IDLE;
+        this->state = State::IDLE;
     }
 }
 
 void ScenarioExecutor::executeScenario(std::atomic_bool& should_run, Scenario& scenario) {
     for (size_t i = 0; i < this->repetitions; i++) {
-        bool real_live_mode =
-            this->robot_interface.getConnectionType() != robot_interface::RobotConnection::SIMULATION &&
-            this->robot_interface.getConnectionType() != robot_interface::RobotConnection::SIMULATION_LEGACY;
+        bool real_live_mode = this->robot_interface.getConnectionType() != robot_interface::RobotConnection::SIMULATION;
         this->state = State::SCENARIO_REQUESTED;
-        LOG_INFO(this->logger, "Setting up scenario '{}'...", scenario.getName());
-        if (!scenario.setup(this->wm, this->simulation_interface, this->local_planner_module, this->skill_book,
+        this->logger.info("Setting up scenario '{}'...", scenario.getName());
+        if (!scenario.setup(this->wm, this->simulation_interface, this->robot_control_module, this->skill_library,
                             real_live_mode))
             return;
         this->state = State::RUNNING;
         std::this_thread::sleep_for(time::Duration(0.3));
 
-        LOG_INFO(this->logger, "Starting scenario '{}'...", scenario.getName());
+        this->logger.info("Starting scenario '{}'...", scenario.getName());
 
         // start experiment logger
         std::vector<experiment_logger::TrackTarget> targets;
@@ -80,17 +79,19 @@ void ScenarioExecutor::executeScenario(std::atomic_bool& should_run, Scenario& s
             obstacles.emplace_back(robot.getFrame());
         }
 
-        this->exp_logger.startExperiment(ScenarioExecutor::scenario.getName(), scenario.getName(), this->wm, targets,
-                                         obstacles);
-        if (!scenario.execute(this->local_planner_module, this->skill_book)) return;
+        this->exp_logger.startExperiment(scenario.getName(), scenario.getName(), this->wm, targets, obstacles);
+        time::TimePoint start_time = time::now();
+        if (!scenario.execute(this->robot_control_module, this->skill_library)) return;
 
-        time::Rate rate(50);
-        while (should_run && !scenario.isFinished(this->local_planner_module)) {
+        time::Rate rate(100);
+        while (should_run && !scenario.isFinished(this->robot_control_module, time::now() - start_time)) {
             this->exp_logger.newDataPoint();
+            scenario.teleportRobots(wm, this->simulation_interface, this->robot_control_module, this->skill_library,
+                                    real_live_mode, time::now() - start_time);
             rate.sleep();
         }
-        if (!this->exp_logger.endExperiment()) LOG_WARNING(this->logger, "experiment data could not be saved!");
-        LOG_INFO(this->logger, "Finished scenario '{}'.", scenario.getName());
+        if (!this->exp_logger.endExperiment()) this->logger.warning("experiment data could not be saved!");
+        this->logger.info("Finished scenario '{}'.", scenario.getName());
     }
 }
 

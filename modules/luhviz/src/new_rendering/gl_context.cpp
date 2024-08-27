@@ -1,6 +1,9 @@
 #include "include/gl_context.hpp"
 #include <msdfgl.h>
 
+// TODO use logger instead of iostream
+#include <iostream>
+
 #include <cmrc/cmrc.hpp>
 
 CMRC_DECLARE(luhviz);
@@ -116,7 +119,8 @@ GLContext::~GLContext() {
 
 void GLContext::displayText(float x, float y, float size, int32_t color, const std::string& text,
                             float* projection_matrix) {
-    msdfgl_printf(x, y, msdfgl_font, size, color, projection_matrix, MSDFGL_KERNING, text.c_str(), MSDFGL_VERSION);
+    msdfgl_printf(x - this->GLYPH_HALF_WIDTH * size * text.size(), y + this->GLYPH_HALF_HEIGHT * size, msdfgl_font,
+                  size, color, projection_matrix, MSDFGL_KERNING, text.c_str(), MSDFGL_VERSION);
 }
 
 void GLContext::clear() { glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT); }

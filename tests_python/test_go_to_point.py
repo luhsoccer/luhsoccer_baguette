@@ -1,27 +1,28 @@
-import pytest
-from tests_python.conftest import skill_book, clean_sim_instance, baguette
-import random
+import baguette_py as baguette
+import start_config
 import time
 import math
+import numpy as np
+import random
 
 
-@pytest.mark.usefixtures("clean_sim_instance", "skill_book")
+@start_config.event_based(start_config.setup_with_clean_sim)
 def test_go_to_point(
-    clean_sim_instance: baguette.Baguette, skill_book: baguette.SkillBook
+    baguette_instance: baguette.Baguette, skill_library: baguette.SkillLibrary
 ):
     test_robot = (
-        clean_sim_instance.game_data_provider.getWorldModel().getPossibleAllyRobots()[1]
+        baguette_instance.game_data_provider.getWorldModel().getPossibleAllyRobots()[1]
     )
-    clean_sim_instance.simulation_interface.teleportRobot(
-        [-1.0, 0.0, 0.0], test_robot.getID()
+    baguette_instance.simulation_interface.teleportRobot(
+        np.array([-1.0, 0.0, 0.0]), test_robot.getID()
     )
 
     task_data = baguette.TaskData(test_robot.getID())
     task_data.addPosition(baguette.Position("", 1.0, 0.0, 0.0))
 
     time.sleep(1)
-    clean_sim_instance.local_planner_module.setTask(
-        skill_book.getSkill(baguette.SkillName.GoToPoint), task_data
+    baguette_instance.robot_control_module.setTask(
+        skill_library.getSkill(baguette.GameSkillNames.GoToPoint), task_data
     )
 
     run: bool = True
@@ -38,42 +39,40 @@ def test_go_to_point(
         now = time.time()
         if now - start > timeout:
             run = False
-            pytest.fail()
+            raise Exception("Skill took to long to reach target position")
 
 
-@pytest.mark.usefixtures("clean_sim_instance", "skill_book")
+@start_config.event_based(start_config.setup_with_clean_sim)
 def test_go_to_point_wit_obstacles(
-    clean_sim_instance: baguette.Baguette, skill_book: baguette.SkillBook
+    baguette_instance: baguette.Baguette, skill_library: baguette.SkillLibrary
 ):
     test_robot = (
-        clean_sim_instance.game_data_provider.getWorldModel().getPossibleAllyRobots()[1]
+        baguette_instance.game_data_provider.getWorldModel().getPossibleAllyRobots()[1]
     )
     time.sleep(1)
 
     for i in range(10):
-        clean_sim_instance.simulation_interface.teleportRobot(
-            [-3.0, 0.0, 0.0], test_robot.getID()
+        baguette_instance.simulation_interface.teleportRobot(
+            np.array([-3.0, 0.0, 0.0]), test_robot.getID()
         )
 
         # randomly place enemy robots
         MAX_X = 2.5
         MAX_Y = 1.0
-        possible_enemy_robots = (
-            clean_sim_instance.game_data_provider.getWorldModel().getPossibleEnemyRobots()
-        )
+        possible_enemy_robots = baguette_instance.game_data_provider.getWorldModel().getPossibleEnemyRobots()
         for x in range(6):
             random_x = (random.random() * 2 * MAX_X) - MAX_X
             random_y = (random.random() * 2 * MAX_Y) - MAX_Y
-            clean_sim_instance.simulation_interface.teleportRobot(
-                [random_x, random_y, 0.0], possible_enemy_robots[x].getID()
+            baguette_instance.simulation_interface.teleportRobot(
+                np.array([random_x, random_y, 0.0]), possible_enemy_robots[x].getID()
             )
 
         task_data = baguette.TaskData(test_robot.getID())
         task_data.addPosition(baguette.Position("", 3.0, 0.0, 0.0))
         time.sleep(1)
 
-        clean_sim_instance.local_planner_module.setTask(
-            skill_book.getSkill(baguette.SkillName.GoToPoint), task_data
+        baguette_instance.robot_control_module.setTask(
+            skill_library.getSkill(baguette.GameSkillNames.GoToPoint), task_data
         )
 
         run: bool = True
@@ -90,4 +89,4 @@ def test_go_to_point_wit_obstacles(
             now = time.time()
             if now - start > timeout:
                 run = False
-                pytest.fail()
+                raise Exception("Skill took to long to reach target position")

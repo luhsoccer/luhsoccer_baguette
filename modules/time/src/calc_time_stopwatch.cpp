@@ -50,7 +50,7 @@ void CalcTimeStopwatch::printSectionTimes() {
             out += fmt::format(" '{}': {:0.5f}s", section_name, duration.value().asSec());
         }
     }
-    LOG_INFO(this->logger, out);
+    this->logger.info(out);
 }
 
 }  // namespace luhsoccer::time

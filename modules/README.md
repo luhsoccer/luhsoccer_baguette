@@ -2,11 +2,9 @@
 
 Heres is the place were all the software modules go. Each module has it own subfolder but can have dependencies to all other modules.
 
-
 * @subpage baguette_module
 * @subpage game_data_provider
 * @subpage luhviz
-* @subpage role_manager
 * @subpage python_bindings
 * @subpage skills
 * @subpage local_planner_components_module
@@ -23,7 +21,9 @@ Heres is the place were all the software modules go. Each module has it own subf
 * @subpage config_provider
 * @subpage include_module
 * @subpage template_module
+
 ## Structure
+
 ### File structure
 
 ```txt
@@ -54,10 +54,10 @@ modules/
 
 As you can see each module is into a custom directory. Each of this module-directory should contains the following items
 
-- A `include` directory. Here is the place for the public header of the modules. (The headers that can/should be used by other modules.) The header itself should go into a directory with the module for better information later to which module a header belongs.
-- A `src` directory. All source file and private headers should be here. No rules here for naming since the contents of the folder are not visible by other modules.
-- The `README.md` file. Each module should have a short description about the functionality and scope of module, so new developers can easy get an overview over the project.
-- `CMakeLists.txt`. This file tells `CMake` how to build the modules. It must be created with the module and only needs to be changed when new files are needed to the module. This is (sadly) necessary since the `glob` operator of `CMake` can lead to problems.
+* A `include` directory. Here is the place for the public header of the modules. (The headers that can/should be used by other modules.) The header itself should go into a directory with the module for better information later to which module a header belongs.
+* A `src` directory. All source file and private headers should be here. No rules here for naming since the contents of the folder are not visible by other modules.
+* The `README.md` file. Each module should have a short description about the functionality and scope of module, so new developers can easy get an overview over the project.
+* `CMakeLists.txt`. This file tells `CMake` how to build the modules. It must be created with the module and only needs to be changed when new files are needed to the module. This is (sadly) necessary since the `glob` operator of `CMake` can lead to problems.
 
 ### Add a file to a module
 

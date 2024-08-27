@@ -4,9 +4,13 @@ namespace luhsoccer::luhviz {
 
 void SkillTester::init() {}
 
-void SkillTester::render() {
+void SkillTester::render(bool& open) {
+    if (!open) {
+        return;
+    }
+
     ImGui::PushStyleColor(ImGuiCol_Text, this->proxy.accent_text_color);
-    ImGui::Begin("Manipulator");
+    ImGui::Begin("Manipulator", &open);
     ImGui::PopStyleColor();
 
     ImGui::SetCursorPos({LEFT_MARGIN, MARGIN_TOP});
@@ -61,6 +65,7 @@ void SkillTester::render() {
         const std::vector<size_t> visible_related_robot_ids = this->getPossibleRobotIds(team_ally, true);
         renderSkillRequiredValuesChooser(visible_related_robot_ids);
 
+        ImGui::NewLine();
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + LEFT_MARGIN);
         ImGui::Checkbox("Second skill", &this->proxy.getSecondSkillEnabled());
         if (this->proxy.getSecondSkillEnabled()) {
@@ -81,9 +86,9 @@ void SkillTester::render() {
         if (ImGui::Button("Cancel Skill(s)")) {
             if (this->proxy.getSelectedRobot().has_value()) {
                 bool success = this->proxy.cancelSkills();
-                if (!success) LOG_WARNING(logger, "Skill could not be canceled");
+                if (!success) logger.warning("Skill could not be canceled");
             } else {
-                LOG_WARNING(logger, "Select a robot to cancel its current running skill");
+                logger.warning("Select a robot to cancel its current running skill");
             }
         }
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Cancels the skill of the selected robot");
@@ -92,7 +97,7 @@ void SkillTester::render() {
         ImGui::SameLine();
         if (ImGui::Button("Send Skill(s)")) {
             bool success = this->proxy.sendSkillsToRobots();
-            if (!success) LOG_WARNING(logger, "Send Skill failed. Check if parameters are correct!");
+            if (!success) logger.warning("Send Skill failed. Check if parameters are correct!");
         }
         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Hint: Shortcut is 'x'");
         ImGui::EndDisabled();
@@ -106,9 +111,12 @@ void SkillTester::render() {
 }
 
 void SkillTester::renderSkillChooser(bool disabled) {
+    if (first_load) {
+        first_load = false;
+    }
+
     // Skill chooser
     const std::string skill_names = this->proxy.getSkillNames();
-    static int selected_skill_index = 0;
     const float item_width_skills =
         std::max(DEFAULT_COMBO_WIDTH, Utils::getMaxItemSize(Utils::splitString(skill_names, '\0')).x);
     ImGui::PushItemWidth(item_width_skills);
@@ -118,11 +126,23 @@ void SkillTester::renderSkillChooser(bool disabled) {
     ImGui::SetCursorPos({TEXT_LEFT_OFFSET_POSITION, ImGui::GetCursorPosY() - 2});
     ImGui::Combo("##Skill", &selected_skill_index, skill_names.c_str());
     ImGui::PopItemWidth();
+    auto selected_before = this->selected_skill;
     this->selected_skill = this->proxy.setSelectedSkill(selected_skill_index);
 
     if (disabled) {
         // set selected skill to nullopt
         this->selected_skill = this->proxy.setSelectedSkill(std::nullopt);
+    }
+
+    if (this->selected_skill.has_value()) {
+        if (!selected_before.has_value()) {
+            this->loadRelatedParamsCounts();
+        } else {
+            if (selected_before.value()->name.compare(this->selected_skill.value()->name) != 0) {
+                // load number of requested parameters for the selected skill
+                this->loadRelatedParamsCounts();
+            }
+        }
     }
 }
 
@@ -175,23 +195,37 @@ void SkillTester::renderRobotIdChooser(const bool& team_ally, const std::vector<
     }
 }
 
-void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& visible_robot_ids) {
+void SkillTester::loadRelatedParamsCounts() {
     // obtain needed parameters from skills
-    int num_related_robots = 0;
-    int num_required_points = 0;
-    int num_required_bools = 0;
-    int num_required_doubles = 0;
-    int num_required_ints = 0;
-    int num_required_strings = 0;
     if (selected_skill.has_value()) {
-        num_related_robots = static_cast<int>(selected_skill.value()->related_robot_num);
-        num_required_points = static_cast<int>(selected_skill.value()->required_point_num);
-        num_required_bools = static_cast<int>(selected_skill.value()->required_bool_num);
-        num_required_doubles = static_cast<int>(selected_skill.value()->required_double_num);
-        num_required_ints = static_cast<int>(selected_skill.value()->required_int_num);
-        num_required_strings = static_cast<int>(selected_skill.value()->required_string_num);
+        this->related_robots_dynamic = !selected_skill.value()->related_robot_num.has_value();
+        if (!this->related_robots_dynamic) {
+            num_related_robots = static_cast<int>(selected_skill.value()->related_robot_num.value());
+        }
+        this->required_points_dynamic = !selected_skill.value()->required_point_num.has_value();
+        if (!this->required_points_dynamic) {
+            num_required_points = static_cast<int>(selected_skill.value()->required_point_num.value());
+        }
+        this->required_bools_dynamic = !selected_skill.value()->required_bool_num.has_value();
+        if (!this->required_bools_dynamic) {
+            num_required_bools = static_cast<int>(selected_skill.value()->required_bool_num.value());
+        }
+        this->required_doubles_dynamic = !selected_skill.value()->required_double_num.has_value();
+        if (!this->required_doubles_dynamic) {
+            num_required_doubles = static_cast<int>(selected_skill.value()->required_double_num.value());
+        }
+        this->required_ints_dynamic = !selected_skill.value()->required_int_num.has_value();
+        if (!this->required_ints_dynamic) {
+            num_required_ints = static_cast<int>(selected_skill.value()->required_int_num.value());
+        }
+        this->required_strings_dynamic = !selected_skill.value()->required_string_num.has_value();
+        if (!this->required_strings_dynamic) {
+            num_required_strings = static_cast<int>(selected_skill.value()->required_string_num.value());
+        }
     }
+}
 
+void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& visible_robot_ids) {
     // related robots chooser
     if (num_related_robots > 0) {
         ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
@@ -204,39 +238,11 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
             related_robot_indices.clear();
         }
 
+        //
+
         // display related robots chooser
         for (size_t i = 0; i < static_cast<size_t>(num_related_robots); ++i) {
-            if (i >= related_robot_indices.size()) {
-                related_robot_indices.emplace_back(0);
-            }
-
-            if (i < this->proxy.getSelectedRelatedRobots().size()) {
-                auto selected_robot = this->proxy.getSelectedRelatedRobots()[i];
-                if (selected_robot.has_value()) {
-                    // get index of selected robot
-                    std::optional<int> index =
-                        this->getRobotIndex(selected_robot.value(), this->proxy.getRobotsWithEmptyId());
-                    if (index.has_value()) {
-                        related_robot_indices[i] = index.value();
-                    }
-                } else {
-                    related_robot_indices[i] = 0;
-                }
-            }
-
-            ImGui::SetCursorPos({LEFT_MARGIN_BIG, ImGui::GetCursorPosY() + 3});
-            std::string title = "";
-            if (this->selected_skill.has_value()) {
-                title = this->selected_skill.value()->related_robot[i] + ":";
-            }
-            ImGui::PushTextWrapPos(TASKDATA_COMBO_OFFSET - 20);
-            ImGui::TextWrapped("%s", title.c_str());
-            ImGui::PopTextWrapPos();
-            ImGui::SameLine();
-            ImGui::SetCursorPosX(TASKDATA_COMBO_OFFSET);
-            const std::string label = "##" + title;
-            ImGui::Combo(label.c_str(), &related_robot_indices[i], this->getAllRobotIdsWithTeam().c_str());
-            if (ImGui::IsItemHovered()) ImGui::SetTooltip("Hint: STRG+Click on robot to select");
+            displayChooseRobotItem(i, related_robot_indices);
         }
         ImGui::PopItemWidth();
 
@@ -254,9 +260,15 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
             this->proxy.setTDRobots(related_robots);
         }
     }
+    // display add item button if size is variadic (std::nullopt)
+    ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
+    if (related_robots_dynamic && ImGui::Button("+ robot")) {
+        num_related_robots++;
+    }
 
     // required points
     if (num_required_points > 0) {
+        ImGui::NewLine();
         ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
         ImGui::Text("Required points: %zu / %d", this->proxy.getTDPoints().size(), num_required_points);
 
@@ -271,8 +283,8 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
         for (int i = 0; i < num_required_points; ++i) {
             ImGui::SetCursorPos({LEFT_MARGIN_BIG, ImGui::GetCursorPosY() + 3});
 
-            std::string text = "";
-            if (this->selected_skill.has_value()) {
+            std::string text = "point" + std::to_string(i);
+            if (this->selected_skill.has_value() && i < this->selected_skill.value()->required_point.size()) {
                 text = this->selected_skill.value()->required_point[i];
             }
 
@@ -286,8 +298,8 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
             ImGui::SetCursorPosX(TASKDATA_COMBO_OFFSET);
             ImGui::PushItemWidth(DEFAULT_INPUT_WIDTH);
 
-            std::string text = "";
-            if (this->selected_skill.has_value()) {
+            std::string text = "point" + std::to_string(i);
+            if (this->selected_skill.has_value() && i < this->selected_skill.value()->required_point.size()) {
                 text = this->selected_skill.value()->required_point[i];
             }
 
@@ -302,6 +314,15 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
             ImGui::DragFloat3(text_l.c_str(), points[i].data(), DRAG_SPEED, 0, 0, "%.2f");
             if (ImGui::IsItemHovered()) ImGui::SetTooltip("Hint: Drag to change values");
             ImGui::PopItemWidth();
+
+            ImGui::SameLine();
+            std::string btn_label = "- point" + std::to_string(i);
+            if (required_points_dynamic && ImGui::Button(btn_label.c_str())) {
+                // remove related robot
+                num_required_points--;
+                points.erase(points.begin() + static_cast<long>(i));
+            }
+            ImGui::NewLine();
         }
 
         // write back the changes
@@ -319,18 +340,26 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
             ++i;
         }
 
+        // TODO: points do not work
+        // TODO: required values remove button und testen
+
         // add new Point via button
         if (this->proxy.getRemainingPointsToChoose() > 0) {
             ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
             if (ImGui::Button("Set point")) {
                 this->proxy.getManipulationMode() = ManipulationMode::ADD_POINT;
             }
-            ImGui::NewLine();
         }
+    }
+    // display add item button if size is variadic (std::nullopt)
+    ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
+    if (required_points_dynamic && ImGui::Button("+ point")) {
+        num_required_points++;
     }
 
     // required bools
     if (num_required_bools > 0) {
+        ImGui::NewLine();
         ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
         ImGui::Text("Required bools: %d", num_required_bools);
 
@@ -338,8 +367,8 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
         for (int i = 0; i < num_required_bools; ++i) {
             ImGui::SetCursorPos({LEFT_MARGIN_BIG, ImGui::GetCursorPosY() + 3});
 
-            std::string text = "";
-            if (this->selected_skill.has_value()) {
+            std::string text = "bool" + std::to_string(i);
+            if (this->selected_skill.has_value() && i < this->selected_skill.value()->required_bool.size()) {
                 text = this->selected_skill.value()->required_bool[i];
             }
 
@@ -355,6 +384,15 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
             const std::string text_l = "##" + text;
             ImGui::Checkbox(text_l.c_str(), &bools[i]);
             ImGui::PopFont();
+
+            ImGui::SameLine();
+            std::string btn_label = "- bool" + std::to_string(i);
+            if (required_bools_dynamic && ImGui::Button(btn_label.c_str())) {
+                // remove related robot
+                num_required_bools--;
+                bools.erase(bools.begin() + static_cast<long>(i));
+            }
+            ImGui::NewLine();
         }
 
         // add to task data
@@ -365,9 +403,15 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
         }
         this->proxy.setTDBools(required_bools);
     }
+    // display add item button if size is variadic (std::nullopt)
+    ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
+    if (required_bools_dynamic && ImGui::Button("+ bool")) {
+        num_required_bools++;
+    }
 
     // required ints
     if (num_required_ints > 0) {
+        ImGui::NewLine();
         ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
         ImGui::Text("Required ints: %d", num_required_ints);
 
@@ -375,8 +419,8 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
         for (int i = 0; i < num_required_ints; ++i) {
             ImGui::SetCursorPos({LEFT_MARGIN_BIG, ImGui::GetCursorPosY() + 3});
 
-            std::string text = "";
-            if (this->selected_skill.has_value()) {
+            std::string text = "int" + std::to_string(i);
+            if (this->selected_skill.has_value() && i < this->selected_skill.value()->required_int.size()) {
                 text = this->selected_skill.value()->required_int[i];
             }
 
@@ -392,6 +436,15 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
             const std::string text_l = "##" + text;
             ImGui::DragInt(text_l.c_str(), &ints[i]);
             ImGui::PopItemWidth();
+
+            ImGui::SameLine();
+            std::string btn_label = "- int" + std::to_string(i);
+            if (required_ints_dynamic && ImGui::Button(btn_label.c_str())) {
+                // remove related robot
+                num_required_ints--;
+                ints.erase(ints.begin() + static_cast<long>(i));
+            }
+            ImGui::NewLine();
         }
 
         // add to task data
@@ -402,9 +455,15 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
         }
         this->proxy.setTDInts(required_ints);
     }
+    // display add item button if size is variadic (std::nullopt)
+    ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
+    if (required_ints_dynamic && ImGui::Button("+ int")) {
+        num_required_ints++;
+    }
 
     // required doubles
     if (num_required_doubles > 0) {
+        ImGui::NewLine();
         ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
         ImGui::Text("Required doubles: %d", num_required_doubles);
 
@@ -412,8 +471,8 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
         for (int i = 0; i < num_required_doubles; ++i) {
             ImGui::SetCursorPos({LEFT_MARGIN_BIG, ImGui::GetCursorPosY() + 3});
 
-            std::string text = "";
-            if (this->selected_skill.has_value()) {
+            std::string text = "double" + std::to_string(i);
+            if (this->selected_skill.has_value() && i < this->selected_skill.value()->required_double.size()) {
                 text = this->selected_skill.value()->required_double[i];
             }
 
@@ -429,6 +488,15 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
             }
             ImGui::DragFloat(text_l.c_str(), &doubles[i]);
             ImGui::PopItemWidth();
+
+            ImGui::SameLine();
+            std::string btn_label = "- double" + std::to_string(i);
+            if (required_doubles_dynamic && ImGui::Button(btn_label.c_str())) {
+                // remove related robot
+                num_required_doubles--;
+                doubles.erase(doubles.begin() + static_cast<long>(i));
+            }
+            ImGui::NewLine();
         }
 
         // add to task data
@@ -439,9 +507,15 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
         }
         this->proxy.setTDDoubles(required_doubles);
     }
+    // display add item button if size is variadic (std::nullopt)
+    ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
+    if (required_doubles_dynamic && ImGui::Button("+ double")) {
+        num_required_doubles++;
+    }
 
     // required strings
     if (num_required_strings > 0) {
+        ImGui::NewLine();
         ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
         ImGui::Text("Required strings: %d", num_required_strings);
 
@@ -449,8 +523,8 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
         for (int i = 0; i < num_required_strings; ++i) {
             ImGui::SetCursorPos({LEFT_MARGIN_BIG, ImGui::GetCursorPosY() + 3});
 
-            std::string text = "";
-            if (this->selected_skill.has_value()) {
+            std::string text = "string" + std::to_string(i);
+            if (this->selected_skill.has_value() && i < this->selected_skill.value()->required_string.size()) {
                 text = this->selected_skill.value()->required_string[i];
             }
 
@@ -466,6 +540,15 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
             }
             ImGui::InputText(text_l.c_str(), &strings[i]);
             ImGui::PopItemWidth();
+
+            ImGui::SameLine();
+            std::string btn_label = "- string" + std::to_string(i);
+            if (required_strings_dynamic && ImGui::Button(btn_label.c_str())) {
+                // remove related robot
+                num_required_strings--;
+                strings.erase(strings.begin() + static_cast<long>(i));
+            }
+            ImGui::NewLine();
         }
 
         // add to task data
@@ -476,6 +559,58 @@ void SkillTester::renderSkillRequiredValuesChooser(const std::vector<size_t>& vi
         }
         this->proxy.setTDStrings(required_strings);
     }
+    // display add item button if size is variadic (std::nullopt)
+    ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
+    if (required_strings_dynamic && ImGui::Button("+ string")) {
+        num_required_strings++;
+    }
+}
+
+void SkillTester::displayChooseRobotItem(size_t i, std::vector<int>& related_robot_indices) {
+    if (i >= related_robot_indices.size()) {
+        related_robot_indices.emplace_back(0);
+    }
+
+    const std::string i_str = std::to_string(i);
+
+    if (i < this->proxy.getSelectedRelatedRobots().size()) {
+        std::optional<RobotIdentifier> selected_robot = this->proxy.getSelectedRelatedRobots()[i];
+        if (selected_robot.has_value()) {
+            // get index of selected robot
+            std::optional<int> index = this->getRobotIndex(selected_robot.value(), this->proxy.getRobotsWithEmptyId());
+            if (index.has_value()) {
+                related_robot_indices[i] = index.value();
+            }
+        } else {
+            related_robot_indices[i] = 0;
+        }
+    }
+
+    ImGui::SetCursorPos({LEFT_MARGIN_BIG, ImGui::GetCursorPosY() + 3});
+    std::string title = "";
+    if (this->selected_skill.has_value()) {
+        if (i < this->selected_skill.value()->related_robot.size()) {
+            title = this->selected_skill.value()->related_robot[i] + ":";
+        } else {
+            title = "robot" + i_str;
+        }
+    }
+    ImGui::PushTextWrapPos(TASKDATA_COMBO_OFFSET - 20);
+    ImGui::TextWrapped("%s", title.c_str());
+    ImGui::PopTextWrapPos();
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(TASKDATA_COMBO_OFFSET);
+    const std::string label = "##" + title + i_str;
+    ImGui::Combo(label.c_str(), &related_robot_indices[i], this->getAllRobotIdsWithTeam().c_str());
+    if (ImGui::IsItemHovered()) ImGui::SetTooltip("Hint: STRG+Click on robot to select");
+    ImGui::SameLine();
+    std::string btn_label = "- robot" + i_str;
+    if (related_robots_dynamic && ImGui::Button(btn_label.c_str())) {
+        // remove related robot
+        num_related_robots--;
+        related_robot_indices.erase(related_robot_indices.begin() + static_cast<long>(i));
+    }
+    ImGui::NewLine();
 }
 
 void SkillTester::renderScenarioTester() {
@@ -581,12 +716,28 @@ void SkillTester::renderSecondSkillChooser(const std::vector<size_t>& available_
     int num_required_ints = 0;
     int num_required_strings = 0;
     if (selected_skill2.has_value()) {
-        num_related_robots = static_cast<int>(selected_skill2.value()->related_robot_num);
-        num_required_points = static_cast<int>(selected_skill2.value()->required_point_num);
-        num_required_bools = static_cast<int>(selected_skill2.value()->required_bool_num);
-        num_required_doubles = static_cast<int>(selected_skill2.value()->required_double_num);
-        num_required_ints = static_cast<int>(selected_skill2.value()->required_int_num);
-        num_required_strings = static_cast<int>(selected_skill2.value()->required_string_num);
+        if (selected_skill2.value()->related_robot_num.has_value()) {
+            num_related_robots = static_cast<int>(selected_skill2.value()->related_robot_num.value());
+        }
+        if (selected_skill2.value()->required_point_num.has_value()) {
+            num_required_points = static_cast<int>(selected_skill2.value()->required_point_num.value());
+        }
+
+        if (selected_skill2.value()->required_bool_num.has_value()) {
+            num_required_bools = static_cast<int>(selected_skill2.value()->required_bool_num.value());
+        }
+
+        if (selected_skill2.value()->required_double_num.has_value()) {
+            num_required_doubles = static_cast<int>(selected_skill2.value()->required_double_num.value());
+        }
+
+        if (selected_skill2.value()->required_int_num.has_value()) {
+            num_required_ints = static_cast<int>(selected_skill2.value()->required_int_num.value());
+        }
+
+        if (selected_skill2.value()->required_string_num.has_value()) {
+            num_required_strings = static_cast<int>(selected_skill2.value()->required_string_num.value());
+        }
     }
 
     // related robots chooser
@@ -623,8 +774,8 @@ void SkillTester::renderSecondSkillChooser(const std::vector<size_t>& available_
 
             ImGui::SetCursorPos({LEFT_MARGIN_BIG, ImGui::GetCursorPosY() + 3});
 
-            std::string title = "";
-            if (this->selected_skill2.has_value()) {
+            std::string title = "title";
+            if (this->selected_skill2.has_value() && i < this->selected_skill2.value()->related_robot.size()) {
                 title = this->selected_skill2.value()->related_robot[i] + ":";
             }
 
@@ -656,6 +807,7 @@ void SkillTester::renderSecondSkillChooser(const std::vector<size_t>& available_
 
     // required points
     if (num_required_points > 0) {
+        ImGui::NewLine();
         ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
         ImGui::Text("Required points: %zu / %d", this->proxy.getTDPoints2().size(), num_required_points);
 
@@ -671,7 +823,7 @@ void SkillTester::renderSecondSkillChooser(const std::vector<size_t>& available_
             ImGui::SetCursorPos({LEFT_MARGIN_BIG, ImGui::GetCursorPosY() + 3});
 
             std::string text = "";
-            if (this->selected_skill2.has_value()) {
+            if (this->selected_skill2.has_value() && i < this->selected_skill2.value()->required_point.size()) {
                 text = this->selected_skill2.value()->required_point[i];
             }
 
@@ -684,7 +836,10 @@ void SkillTester::renderSecondSkillChooser(const std::vector<size_t>& available_
             ImGui::SameLine();
             ImGui::SetCursorPosX(TASKDATA_COMBO_OFFSET);
             ImGui::PushItemWidth(DEFAULT_INPUT_WIDTH);
-            const std::string text = this->selected_skill2.value()->required_point[i];
+            std::string text = "";
+            if (this->selected_skill2.has_value() && i < this->selected_skill2.value()->required_point.size()) {
+                text = this->selected_skill2.value()->required_point[i];
+            }
             const std::string text_l = "##2" + text;
             if (i >= points2.size()) {
                 // update new points
@@ -719,12 +874,12 @@ void SkillTester::renderSecondSkillChooser(const std::vector<size_t>& available_
             if (ImGui::Button("Set point")) {
                 this->proxy.getManipulationMode() = ManipulationMode::ADD_POINT;
             }
-            ImGui::NewLine();
         }
     }
 
     // required bools
     if (num_required_bools > 0) {
+        ImGui::NewLine();
         ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
         ImGui::Text("Required bools: %d", num_required_bools);
 
@@ -733,7 +888,7 @@ void SkillTester::renderSecondSkillChooser(const std::vector<size_t>& available_
             ImGui::SetCursorPos({LEFT_MARGIN_BIG, ImGui::GetCursorPosY() + 3});
 
             std::string text = "";
-            if (this->selected_skill2.has_value()) {
+            if (this->selected_skill2.has_value() && i < this->selected_skill2.value()->required_bool.size()) {
                 text = this->selected_skill2.value()->required_bool[i];
             }
 
@@ -762,6 +917,7 @@ void SkillTester::renderSecondSkillChooser(const std::vector<size_t>& available_
 
     // required ints
     if (num_required_ints > 0) {
+        ImGui::NewLine();
         ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
         ImGui::Text("Required ints: %d", num_required_ints);
 
@@ -770,7 +926,7 @@ void SkillTester::renderSecondSkillChooser(const std::vector<size_t>& available_
             ImGui::SetCursorPos({LEFT_MARGIN_BIG, ImGui::GetCursorPosY() + 3});
 
             std::string text = "";
-            if (this->selected_skill2.has_value()) {
+            if (this->selected_skill2.has_value() && i < this->selected_skill2.value()->required_int.size()) {
                 text = this->selected_skill2.value()->required_int[i];
             }
 
@@ -799,6 +955,7 @@ void SkillTester::renderSecondSkillChooser(const std::vector<size_t>& available_
 
     // required doubles
     if (num_required_doubles > 0) {
+        ImGui::NewLine();
         ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
         ImGui::Text("Required doubles: %d", num_required_doubles);
 
@@ -807,7 +964,7 @@ void SkillTester::renderSecondSkillChooser(const std::vector<size_t>& available_
             ImGui::SetCursorPos({LEFT_MARGIN_BIG, ImGui::GetCursorPosY() + 3});
 
             std::string text = "";
-            if (this->selected_skill2.has_value()) {
+            if (this->selected_skill2.has_value() && i < this->selected_skill2.value()->required_double.size()) {
                 text = this->selected_skill2.value()->required_double[i];
             }
 
@@ -836,6 +993,7 @@ void SkillTester::renderSecondSkillChooser(const std::vector<size_t>& available_
 
     // required strings
     if (num_required_strings > 0) {
+        ImGui::NewLine();
         ImGui::SetCursorPos({LEFT_MARGIN, ImGui::GetCursorPosY() + 3});
         ImGui::Text("Required strings: %d", num_required_strings);
 
@@ -844,7 +1002,7 @@ void SkillTester::renderSecondSkillChooser(const std::vector<size_t>& available_
             ImGui::SetCursorPos({LEFT_MARGIN_BIG, ImGui::GetCursorPosY() + 3});
 
             std::string text = "";
-            if (this->selected_skill2.has_value()) {
+            if (this->selected_skill2.has_value() && i < this->selected_skill2.value()->required_string.size()) {
                 text = this->selected_skill2.value()->required_string[i];
             }
 

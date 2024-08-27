@@ -2,10 +2,10 @@
 
 #include <map>
 #include <mutex>
-#include "module.hpp"
+#include "core/module.hpp"
 #include "logger/logger.hpp"
 #include "simulation_interface/simulation_connector.hpp"
-#include "robot_identifier.hpp"
+#include "core/robot_identifier.hpp"
 #include <Eigen/Geometry>
 
 namespace luhsoccer::simulation_interface {
@@ -24,7 +24,7 @@ using namespace simulation;
  */
 class SimulationInterface : public BaguetteModule {
    public:
-    SimulationInterface() = default;
+    SimulationInterface(event_system::EventSystem& event_system) : event_system(event_system){};
     SimulationInterface(const SimulationInterface&) = delete;
     SimulationInterface(SimulationInterface&&) = delete;
     SimulationInterface& operator=(const SimulationInterface&) = delete;
@@ -36,9 +36,6 @@ class SimulationInterface : public BaguetteModule {
 
     /// The setup function for this module
     void setup() override;
-
-    /// The loop function for this module
-    void loop(std::atomic_bool& should_run) override;
 
     /// The stop function for this module
     void stop() override;
@@ -126,7 +123,15 @@ class SimulationInterface : public BaguetteModule {
      */
     void teleportBall(const Eigen::Affine2d& target, const Eigen::Vector3d& velocity = {0.0, 0.0, 0.0});
 
+    /**
+     * @brief Kick the ball without changing the position.
+     *
+     * @param velocity
+     */
+    void kickBall(const Eigen::Vector3d& velocity);
+
    private:
+    event_system::EventSystem& event_system;
     VisionOutputCallback packet_sink = [](auto&&) {};
     RobotOutputCallback robot_sink = [](auto&&, auto&&) {};
     SimulationOutputCallback simulation_sink = [](auto&&) {};
@@ -136,12 +141,7 @@ class SimulationInterface : public BaguetteModule {
     logger::Logger logger{"simulation-interface"};
 
     template <typename T, typename... Args>
-    void addConnector(Args&&... args) {
-        std::unique_ptr<T> simulation =
-            std::make_unique<T>(packet_sink, robot_sink, simulation_sink, std::forward<Args>(args)...);
-        LOG_DEBUG(logger, "Added simulation connector: {}", simulation->type());
-        connectors[simulation->type()] = std::move(simulation);
-    }
+    void addConnector(Args&&... args);
 };
 
 }  // namespace luhsoccer::simulation_interface

@@ -1,8 +1,9 @@
 #include "robot_interface/robot_interface.hpp"
+#include "robot_interface/events.hpp"
 #include "config_provider/config_store_main.hpp"
+#include "config/game_config.hpp"
 #include "packets.hpp"
 
-#include "connections/serial.hpp"
 #include "connections/network.hpp"
 #include "connections/simulation.hpp"
 
@@ -14,47 +15,40 @@ class DefaultPacketBuilder : public PacketBuilder {
         // NOP
     };
 
-    std::vector<RobotFeedbackWrapper> buildAndSend() override {
+    void buildAndSend() override{
         // NOP
-        return {};
     };
 };
 
-std::ostream& operator<<(std::ostream& os, const RobotConnection& source) {
-    switch (source) {
+std::string_view format_as(const RobotConnection& type) {
+    switch (type) {
         case RobotConnection::DISABLED:
-            os << "Disabled";
-            break;
+            return "Disabled";
         case RobotConnection::NETWORK:
-            os << "Network";
-            break;
+            return "Network";
         case RobotConnection::SERIAL:
-            os << "Serial";
-            break;
-        case RobotConnection::SERIAL_LEGACY:
-            os << "Serial (Legacy)";
-            break;
+            return "Serial";
         case RobotConnection::SIMULATION:
-            os << "Simulation";
-            break;
-        case RobotConnection::SIMULATION_LEGACY:
-            os << "Simulation (Legacy)";
+            return "Simulation";
     }
-    return os;
-}
+};
 
-RobotInterface::RobotInterface(simulation_interface::SimulationInterface& interface)
-    : simulation_connection(std::make_unique<SimulationConnection>(interface)),
-      serial_connection(std::make_unique<SerialConnection>()),
-      network_connection(std::make_unique<NetworkConnection>()) {}
+RobotInterface::RobotInterface(simulation_interface::SimulationInterface& interface) : interface(interface) {}
 
 RobotInterface::~RobotInterface() = default;
 
-void RobotInterface::setup() {
-    // NOP
+void RobotInterface::setup(event_system::EventSystem& event_system) {
+    simulation_connection = std::make_unique<SimulationConnection>(
+        [&](RobotFeedbackWrapper wrapper) { this->processFeedback(wrapper, event_system); }, interface);
+    network_connection = std::make_unique<NetworkConnection>(
+        [&](RobotFeedbackWrapper wrapper) { this->processFeedback(wrapper, event_system); },
+        event_system.getIoContext());
+
+    event_system.registerEventHandler<event_system::TimerEvent100Hz>(
+        [this](const event_system::EventContext<event_system::TimerEvent100Hz>& ctx) { this->update(ctx.system); });
 }
 
-void RobotInterface::loop(std::atomic_bool& /*should_run*/) {
+void RobotInterface::update(event_system::EventSystem& event_system) {
     const auto now = time::now();
 
     const auto builder = prepareSending();
@@ -64,10 +58,22 @@ void RobotInterface::loop(std::atomic_bool& /*should_run*/) {
         color = TeamColor::YELLOW;
     }
 
+    auto active_robots_copy = [&]() {
+        std::lock_guard lock(this->send_mutex);
+        return this->active_robots;
+    }();
+
+    // TODO might have bad performance, because we're iterating through the same list twice
+    for (const auto& robot : active_robots_copy) {
+        event_system.fireEvent(RobotCommandSendEvent{robot.first, robot.second.second});
+    }
+
     std::unique_lock lock(this->send_mutex);
 
     int counter = 0;
 
+    // TODO we can't fireEvent here since we're in a lock and this can cause deadlocks with other events that are fired
+    // in the same time for example the local planner might send updateCommand which causes a deadlock
     for (auto it = this->active_robots.begin(); it != this->active_robots.end();) {
         const auto& element = *it;
 
@@ -77,7 +83,6 @@ void RobotInterface::loop(std::atomic_bool& /*should_run*/) {
         counter++;
         builder->addMessage(wrapper);
 
-        this->robot_command_callbacks({element.first.id, element.second.second});
         bool remove = (now - element.second.first) > this->packet_repeat_duration;
         // Remove robot from sending list if there was no update for a certain time
 
@@ -90,17 +95,11 @@ void RobotInterface::loop(std::atomic_bool& /*should_run*/) {
     lock.unlock();
 
     if (counter != 0) {
-        auto feedback_list = builder->buildAndSend();
-
-        for (auto& feedback : feedback_list) {
-            this->processFeedback(feedback);
-        }
+        builder->buildAndSend();
     }
-
-    rate.sleep();
 }
 
-void RobotInterface::processFeedback(RobotFeedbackWrapper& feedback_wrapper) {
+void RobotInterface::processFeedback(RobotFeedbackWrapper& feedback_wrapper, event_system::EventSystem& event_system) {
     bool is_blue = feedback_wrapper.color == TeamColor::BLUE;
     RobotIdentifier id(feedback_wrapper.id, Team::ALLY);
     if (is_blue == config_provider::ConfigProvider::getConfigStore().game_config.is_blue.val()) {
@@ -116,11 +115,11 @@ void RobotInterface::processFeedback(RobotFeedbackWrapper& feedback_wrapper) {
         if (feedback_wrapper.feedback.telemetry_rf) {
             feedback_wrapper.feedback.telemetry_rf->frequency = this->feedback_counters[id].measuredFrequency();
         }
-        this->robot_feedback_callbacks(std::make_pair(id, feedback_wrapper.feedback));
+        event_system.fireEvent(RobotFeedbackReceivedEvent{id, feedback_wrapper.feedback});
     }
 }
 
-void RobotInterface::stop() { this->serial_connection->stop(); };
+void RobotInterface::stop(){};
 
 void RobotInterface::replaceCommand(const RobotIdentifier& robot, RobotCommand command) {
     std::lock_guard lock(this->send_mutex);
@@ -168,7 +167,7 @@ void RobotInterface::clearKickCommand(const RobotIdentifier& robot) {
 }
 
 void RobotInterface::setConnectionType(const RobotConnection mode) {
-    LOG_INFO(logger, "Change ssl interface mode from {} to {}", this->connection_type, mode);
+    logger.info("Change ssl interface mode from {} to {}", this->connection_type, mode);
     this->connection_type = mode;
     if (this->network_connection != nullptr) this->network_connection->updateBSHost();
 }
@@ -177,14 +176,12 @@ std::unique_ptr<PacketBuilder> RobotInterface::prepareSending() {
     switch (this->connection_type) {
         case RobotConnection::SIMULATION:
             return std::make_unique<SimulationPacketBuilder>(*this->simulation_connection.get());
-        case RobotConnection::SERIAL_LEGACY:
-            return std::make_unique<SerialPacketBuilder>(*this->serial_connection.get());
         case RobotConnection::NETWORK:
             return std::make_unique<NetworkPacketBuilder>(*this->network_connection.get());
         case RobotConnection::DISABLED:
             return std::make_unique<DefaultPacketBuilder>();
         default:
-            LOG_WARNING(logger, "No packet builder for connection type {}", this->connection_type);
+            logger.warning("No packet builder for connection type {}", this->connection_type);
             return std::make_unique<DefaultPacketBuilder>();
     }
 }

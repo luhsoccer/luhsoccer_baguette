@@ -1,13 +1,16 @@
+#pragma once
+
 #include <rigtorp/MPMCQueue.h>
 #include <ssl_interface/ssl_types.hpp>
-#include <robot_interface/robot_interface_types.hpp>
+#include <robot_interface/events.hpp>
+#include <condition_variable>
+#include "vision_processor/vision_processor_events.hpp"
 
 namespace luhsoccer::game_data_provider {
 
-using Data =
-    std::variant<ssl_interface::SSLFieldData, ssl_interface::SSLVisionData, ssl_interface::SSLGameControllerData,
-                 std::pair<RobotIdentifier, robot_interface::RobotFeedback>,
-                 std::pair<uint32_t, robot_interface::RobotCommand>>;
+using Data = std::variant<ssl_interface::SSLFieldData, ssl_interface::SSLGameControllerData,
+                          robot_interface::RobotFeedbackReceivedEvent, robot_interface::RobotCommandSendEvent,
+                          vision_processor::ProcessedVisionData>;
 
 class DataProcessor {
    public:
@@ -27,7 +30,7 @@ class DataProcessor {
     template <typename DataType>
     void appendData(DataType data) {
         if (!data_queue.try_emplace(std::forward<decltype(data)>(data))) {
-            LOG_WARNING(logger, "GameDataProvider Processing Queue is full");
+            logger.warning("GameDataProvider Processing Queue is full");
         }
         cv.notify_one();
     }

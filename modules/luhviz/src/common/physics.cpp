@@ -1,5 +1,8 @@
 #include "include/physics.hpp"
 
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/intersect.hpp>
+
 namespace luhsoccer::luhviz {
 
 glm::dvec3 Physics::raycast(const glm::dvec2& pos, const glm::mat4& view, const glm::mat4& projection,

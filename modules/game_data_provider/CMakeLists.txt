@@ -7,14 +7,6 @@ add_library(${MODULE_NAME} STATIC
     # Game Data Provider 
     src/game_data_provider.cpp
     src/robot_data_filter.cpp
-    src/ball_filter/ball_filter.cpp
-    src/ball_filter/static_queue.hpp
-    src/ball_filter/speed_filter.cpp
-    src/ball_filter/speed_filter.hpp
-    src/ball_filter/moving_average_filter.cpp
-    src/ball_filter/moving_average_filter.hpp
-    src/ball_filter/base_filter.cpp
-    src/ball_filter/base_filter.hpp
     include/${MODULE_NAME}/game_data_provider.hpp
     include/${MODULE_NAME}/team_info.hpp
     include/${MODULE_NAME}/team_info.hpp
@@ -48,18 +40,24 @@ add_library(${MODULE_NAME} STATIC
     src/observer/misc/misc.cpp
     src/observer/misc/misc.hpp
     src/observer/utility.hpp
+
+    src/ball_filter.hpp
+    src/ball_filter.cpp
 )
 
 find_package(Eigen3 REQUIRED)
+find_package(MPMCQueue REQUIRED)
 
 target_link_libraries(${MODULE_NAME}
     PRIVATE
-    ssl_interface
+    vision_processor
     robot_interface
+    ssl_interface
     utils
     marker_service
     config_provider
     robot_interface
+    MPMCQueue::MPMCQueue
     PUBLIC
     transform
     logger

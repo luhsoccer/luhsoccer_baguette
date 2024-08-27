@@ -1,0 +1,23 @@
+
+- [x] BackwardsDribbling
+- [x] BlockEnemyLosVariable -> MarkEnemyLosVariable
+- [x] BlockGoalieLoS -> MarkGoalieLoS
+- [X] DefendGoalOnCircle -> GoalieDefendOnCircle
+- [x] DriveToLineSegment -> nehmen wir raus -> Drive to penalty line
+- [x] ForwardDribbling -> Zusammenlegen mit Backwardsdribbling
+- [x] GetBall -> nimmt den ball in den Dribbler
+- [X] GoalieLosDefend
+- [X] GoalieLosDefendWOBall
+- [x] GoToPoint
+- [x] GoToPointWithHeading
+- [x] Halt
+- [x] InterceptBall -> pass annehmen, schuss intercepten
+- [x] KickBallThroughTarget -> Kick Ball
+- [x] MarkEnemyToBall
+- [x] MoveToBallTurnRadius -> GoToBall -> fährt in die Nähe des balls -> ball possesion ally
+- [x] MoveToPenaltyLine -> GoToPenaltyLine
+- [x] OktoSkill
+- [x] ReflexKick
+- [x] StealBall
+- [x] WallAtDistance -> erstmal raus
+- [x] WallAtPenaltyArea 

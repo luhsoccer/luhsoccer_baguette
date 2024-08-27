@@ -111,6 +111,18 @@ class Controls {
     void resetView();
 
     /**
+     * @brief Get the zoom value
+     *
+     * @return double
+     */
+    float getScaledZoom() {
+        if (zoom < STANDARD_ZOOM) {
+            return 1;
+        }
+        return 1 + zoom / ZOOM_MAX;
+    }
+
+    /**
      * @brief saves the current view settings (camera orientation, zoom and perspective)
      *
      */
@@ -126,14 +138,14 @@ class Controls {
     constexpr static float PI = glm::pi<float>();
     constexpr static float ROTATE_SPEED_PERS = 2.0f;
     constexpr static float MOVE_SPEED_PERSP = 108.0f;
-    constexpr static float MOVE_SPEED_ORTH = 200.0f;
+    constexpr static float MOVE_SPEED_ORTH = 800.0f;
     constexpr static float RADIUS = 15.0f;
     constexpr static float CAMERA_NEAR = 0.1f, CAMERA_FAR = 100.0f;
-    constexpr static float STAND_PERSP_ANGLEX = PI;
+    constexpr static float STAND_PERSP_ANGLEX = 2 * PI;
     constexpr static float STAND_PERSP_ANGLEY = PI / 4;
     constexpr static float STAND_TOPDOWN_ANGLEY = PI / 2;
     constexpr static float ORBIT_Y_MIN = 0, ORBIT_Y_MAX = PI / 2;
-    constexpr static float STANDARD_ZOOM = 15.0f;
+    constexpr static float STANDARD_ZOOM = 25.0f;
     constexpr static float ZOOM_MAX = 35.0f, ZOOM_MIN = 1.0f;
     constexpr static float STANDARD_MOUSE_SPEED = 0.001f;
 

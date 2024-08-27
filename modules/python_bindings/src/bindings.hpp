@@ -2,148 +2,137 @@
 
 #include "baguette.hpp"
 #include "id_provider.hpp"
-#include <pybind11/pybind11.h>
-#include <pybind11/eigen.h>
-#include <pybind11/chrono.h>
-#include <pybind11/functional.h>
-#include <pybind11/stl.h>
-#include <pybind11/operators.h>
-#include <condition_variable>
+#include "nanobind/nanobind.h"
+#include "nanobind/stl/function.h"
+#include "nanobind/stl/string.h"
+#include "nanobind/stl/string_view.h"
+#include "nanobind/stl/vector.h"
+#include "nanobind/stl/shared_ptr.h"
+#include "nanobind/stl/unique_ptr.h"
+#include "nanobind/stl/optional.h"
+#include "nanobind/stl/chrono.h"
+#include "nanobind/stl/pair.h"
+#include "nanobind/stl/unordered_map.h"
+#include "nanobind/stl/map.h"
+#include "nanobind/stl/variant.h"
+#include "nanobind/stl/array.h"
+#include "nanobind/eigen/dense.h"
+#include "nanobind/operators.h"
+#include "nanobind/trampoline.h"
+
+#include "type_casters/time.hpp"
+
+#include "magic_enum.hpp"
 
 namespace luhsoccer::python {
 
-namespace py = pybind11;
+namespace nb = nanobind;
 
-template <typename T>
-void bindModule(py::module_& baguette_module, py::class_<T>& instance);
-
-template <typename T>
-void bindEnum(py::enum_<T>& instance);
-
-template <typename T>
-void bindClass(py::class_<T>& instance);
-
-template <typename T, typename P>
-void bindDerivedClass(py::class_<T, P>& instance);
-
-template <typename T>
-void bindSharedClass(py::class_<T, std::shared_ptr<T>>& instance);
-
-template <typename T, typename D>
-void bindVirtualClass(py::class_<T, D, std::shared_ptr<T>>& instance);
-
-template <typename T>
-inline void addFormattedRepr(py::class_<T>& instance) {
-    instance.def("__repr__", [](const T& object) {
-        std::stringstream s;
-        s << object;
-        return s.str();
-    });
-}
-
-template <typename T>
-inline void loadModuleBindings(py::module_& baguette_module, py::class_<baguette::TheBaguette>& baguette_class,
-                               T& module, std::string_view name) {
-    py::class_<T> instance(baguette_module, name.data());
-    baguette_class.def_property_readonly(
-        module.moduleName().data(), [&module](py::object& /*self*/) { return &module; },
-        py::return_value_policy::reference);
-    bindModule(baguette_module, instance);
-}
-
-template <typename T>
-inline void loadEnumBindings(py::module_& baguette_module, std::string_view name) {
-    py::enum_<T> instance(baguette_module, name.data());
-    bindEnum(instance);
-}
-
-template <typename T>
-inline void loadClassBindings(py::module_& baguette_module, std::string_view name) {
-    py::class_<T> instance(baguette_module, name.data());
-    bindClass(instance);
-}
-
-template <typename T, typename P>
-inline void loadDerivedClassBindings(py::module_& baguette_module, std::string_view name) {
-    py::class_<T, P> instance(baguette_module, name.data());
-    bindDerivedClass(instance);
-}
-
-template <typename T>
-inline void loadSharedClassBindings(py::module_& baguette_module, std::string_view name) {
-    py::class_<T, std::shared_ptr<T>> instance(baguette_module, name.data());
-    bindSharedClass(instance);
-}
-
-template <typename T, typename D>
-inline void loadVirtualClassBindings(py::module_& baguette_module, std::string_view name) {
-    py::class_<T, D, std::shared_ptr<T>> instance(baguette_module, name.data());
-    bindVirtualClass(instance);
-}
-
-void createModuleBindings(py::module_& baguette_module, py::class_<baguette::TheBaguette>& wrapper,
-                          baguette::TheBaguette& baguette);
-
-void createToolBindings(py::module_& baguette_module, py::class_<baguette::TheBaguette>& wrapper,
-                        baguette::TheBaguette& baguette);
-
-inline void loadBindings(py::module_& baguette_module, baguette::TheBaguette& instance) {
-    py::class_<baguette::TheBaguette> baguette(baguette_module, "Baguette");
-
-    // Register start function for the python object
-    baguette.def("start", [&](baguette::TheBaguette& self) {
-        // Don't start the instance twice
-        if (!self.started) {
-            // Start run in a custom thread to avoid the python GIL
-            std::atomic_bool loaded = false;
-            std::thread([&]() {
-                self.load(false);
-                loaded = true;
-                self.run();
-            }).detach();
-
-            while (!loaded) {  // wait until the main thread has loaded the modules, so they can accessed by python
-                std::this_thread::sleep_for(std::chrono::milliseconds(100));
-            }
-        }
-
-        py::module_::import("atexit").attr("register")(py::cpp_function([&]() {
-            py::gil_scoped_release release;
-            self.stop();
-        }));
-    });
-
-    baguette.def("isRunning", &baguette::TheBaguette::isRunning);
-
-    /*baguette.def("stop", [&](baguette::TheBaguette& self) {
-
-    });*/
-
-    baguette_module.def(
-        "getInstance", [&instance]() { return &instance; }, py::return_value_policy::reference);
-
-    createToolBindings(baguette_module, baguette, instance);
-    createModuleBindings(baguette_module, baguette, instance);
-}
-
-void bindConfigs(py::module_& baguette_module);
+using namespace nb::literals;
 
 template <typename T>
 auto executePythonCallbackWithErrorLogging(const std::string& callback_name, T callback) {
     try {
         return callback();
-    } catch (py::error_already_set& e) {
-        LOG_ERROR(logger::Logger("python_bindings"), "Error while executing python callback '{}':\n{}", callback_name,
-                  e.what());
-        throw std::runtime_error("Error while executing python callback");
-    } catch (py::cast_error& e) {
-        LOG_ERROR(logger::Logger("python_bindings"), "Error while casting types from python callback '{}':\n{}",
-                  callback_name, e.what());
+    } catch (nb::python_error& e) {
+        logger::Logger("python_bindings")
+            .error("Error while executing python callback '{}':\n{}", callback_name, e.what());
+        nb::raise_from(e, PyExc_RuntimeError, "Error while executing python callback");
+    } catch (nb::cast_error& e) {
+        logger::Logger("python_bindings")
+            .error("Error while casting types from python callback '{}':\n{}", callback_name, e.what());
         throw std::runtime_error("Error while executing python callback");
     } catch (...) {
-        LOG_ERROR(logger::Logger("python_bindings"), "Error while executing python callback: '{}'", callback_name);
+        logger::Logger("python_bindings").error("Error while executing python callback: '{}'", callback_name);
         throw std::runtime_error("Error while executing python callback");
     }
 }
+
+template <typename T>
+void bindClass(nb::class_<T>& instance);
+
+template <typename T, typename P>
+void bindDerivedClass(nb::class_<T, P>& instance);
+
+template <typename T>
+void bindModule(nb::module_& baguette_module, nb::class_<T>& instance);
+
+template <typename T>
+void bindTool(nb::module_& baguette_module, nb::class_<T>& instance);
+
+template <typename T>
+void addFormattedRepr(nb::class_<T>& instance) {
+    instance.def("__repr__", [](const T& object) { return fmt::to_string(object); });
+}
+
+template <typename T>
+void loadModuleBindings(nb::module_& baguette_module, nb::class_<baguette::TheBaguette>& baguette_class,
+                        std::unique_ptr<T> baguette::TheBaguette::*module, std::string_view name,
+                        const std::string& field_name) {
+    nb::class_<T> instance(baguette_module, name.data());
+    baguette_class.def_prop_ro(
+        field_name.c_str(), [module](baguette::TheBaguette& self) -> const T& { return *(self.*module); },
+        nb::rv_policy::reference_internal);
+    bindModule(baguette_module, instance);
+}
+
+template <typename T>
+void loadToolBindings(nb::module_& baguette_module, std::string_view name) {
+    nb::class_<T> instance(baguette_module, name.data());
+    bindTool(baguette_module, instance);
+}
+
+// TODO: This could be modified in a future version to comply with pythons UPPER_CASE naming convention
+// but that would be a breaking change
+inline std::string pythonEnumName(std::string_view name_view) {
+    std::string result;
+    result.reserve(name_view.size());
+    bool upper = true;
+    for (char c : name_view) {
+        if (c == '_') {
+            upper = true;
+        } else if (upper) {
+            result.push_back(std::toupper(c));
+            upper = false;
+        } else {
+            result.push_back(std::tolower(c));
+        }
+    }
+    return result;
+}
+
+/**
+ * @brief Auto generates bindings for an enum class.
+ * This function generates bindings for all variants of an given enum.
+ *
+ * @tparam T The enum
+ * @param baguette_module the baguette python module
+ * @param name the name of the enum
+ */
+template <typename T>
+void loadEnumBindings(nb::module_& baguette_module, std::string_view name) {
+    nb::enum_<T> instance(baguette_module, name.data());
+    for (auto value : magic_enum::enum_values<T>()) {
+        instance.value(pythonEnumName(magic_enum::enum_name(value)).c_str(), value);
+    }
+}
+
+template <typename T, typename... Extras>
+void loadClassBindings(nb::module_& baguette_module, std::string_view name, const Extras&... ex) {
+    nb::class_<T> instance(baguette_module, name.data(), ex...);
+    bindClass(instance);
+}
+
+template <typename T, typename P>
+void loadDerivedClassBindings(nb::module_& baguette_module, std::string_view name) {
+    nb::class_<T, P> instance(baguette_module, name.data());
+    bindDerivedClass(instance);
+}
+
+void createModuleBindings(nb::module_& baguette_module, nb::class_<baguette::TheBaguette>& wrapper);
+
+void createToolBindings(nb::module_& baguette_module, nb::class_<baguette::TheBaguette>& wrapper);
+
+void bindConfigs(nb::module_& baguette_module);
 
 }  // namespace luhsoccer::python

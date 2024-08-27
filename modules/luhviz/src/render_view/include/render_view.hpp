@@ -13,6 +13,7 @@
 #include "render_view/include/model.hpp"
 #include "common/include/physics.hpp"
 #include <glm/gtx/vector_angle.hpp>
+#include "core/common_types.hpp"
 
 namespace luhsoccer::luhviz {
 
@@ -63,7 +64,7 @@ class RenderView {
      * control
      *
      */
-    void renderToTexture();
+    void renderToTexture(bool& open);
 
     /**
      * @brief cleans up all allocated memory on program quit
@@ -81,7 +82,8 @@ class RenderView {
     const std::string ver_shader = res_path + "shader/vertexShader.glsl";
     const std::string frag_shader = res_path + "shader/fragmentShader.glsl";
     // paths of the different .obj files
-    const std::string goalborders_obj = res_path + "obj/goalborders.obj";
+    const std::string goalborders_diva_obj = res_path + "obj/goalborders_diva.obj";
+    const std::string goalborders_divb_obj = res_path + "obj/goalborders_divb.obj";
     const std::string frame_obj = res_path + "obj/frame.obj";
     const std::string frame_texture = res_path + "obj/frame.bmp";
     const std::string robot_obj = res_path + "obj/soccerrobot.obj";
@@ -95,12 +97,14 @@ class RenderView {
     const std::string suzanne_obj = res_path + "obj/suzanne.obj";
     const std::string plane_obj = res_path + "obj/plane.obj";
     const std::string text_texture = res_path + "msdf/";
+    const std::string grid_obj = res_path + "obj/grid.obj";
     // custom cursor images paths
     const std::string p_teleport = res_path + "images/cursor_icons/teleport_cursor.png";
     const std::string p_setpoint = res_path + "images/cursor_icons/setpoint_cursor.png";
     const std::string p_setdir = res_path + "images/cursor_icons/setdir_cursor.png";
     const std::string p_execskill = res_path + "images/cursor_icons/execskill_cursor.png";
     const std::string p_slingshot = res_path + "images/cursor_icons/ballslingshot_cursor.png";
+    const std::string p_setpoint_measure = res_path + "images/cursor_icons/setpoint_measure_cursor.png";
 
     // default position of the light
     constexpr static glm::vec3 DEFAULT_LIGHT_POS = glm::dvec3(0, 20, 0);
@@ -156,15 +160,19 @@ class RenderView {
 
     bool is_hovered = false;
 
+    // grid markers stay always the same
+    marker::MarkerImpl grid_marker{marker::Type3D::GRID, {0, 0, 0}};
+
     // mouse cursor image ids
     GLTexture teleport_cursor;
     GLTexture setpoint_cursor;
     GLTexture setdir_cursor;
     GLTexture execskill_cursor;
     GLTexture ballslingshot_cursor;
+    GLTexture measure_cursor;
 
     // robot selection
-    const double robot_collider_radius = 0.12;
+    const double robot_collider_radius = 0.16;
     const glm::dvec3 robot_collider_center{0, 0.08, 0};
     std::optional<double> mousewheel_rotation{std::nullopt};
 
@@ -259,5 +267,31 @@ class RenderView {
         }
         return std::nullopt;
     }
+
+    /**
+     * @brief displays a semi transparent grid for measurement of distances and snapping
+     *
+     */
+    void displayGrid(marker::LuhvizMarkers& luhviz_markers);
+
+    /**
+     * @brief display a sphere and additional data around selected robots, if any
+     *
+     */
+    void displaySelectedRobots(marker::LuhvizMarkers& luhviz_markers);
+
+    /**
+     * @brief displays a line and the distance as text if the measurement tool is active
+     *
+     * @param luhviz_markers
+     */
+    void displayMeasureData(marker::LuhvizMarkers& luhviz_markers);
+
+    /**
+     * @brief displays frames and other visuals for skill sending (frames, arrows etc.)
+     *
+     * @param luhviz_markers
+     */
+    void displaySkillVisuals(marker::LuhvizMarkers& luhviz_markers);
 };
 }  // namespace luhsoccer::luhviz

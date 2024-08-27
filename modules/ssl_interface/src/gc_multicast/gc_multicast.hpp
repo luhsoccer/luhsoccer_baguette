@@ -14,16 +14,15 @@ constexpr int SSL_GC_MULTICAST_DEFAULT_PORT = 10003;
 
 class GCMulticastConnection {
    public:
-    GCMulticastConnection(SSLInterface& callback, asio::io_context& context, const std::string& ip = "224.5.23.1",
-                          uint16_t port = SSL_GC_MULTICAST_DEFAULT_PORT);
+    GCMulticastConnection(SSLInterface& callback, event_system::EventSystem& event_system,
+                          const std::string& ip = "224.5.23.1", uint16_t port = SSL_GC_MULTICAST_DEFAULT_PORT);
     void setup();
     void read();
     void close();
 
    private:
     SSLInterface& interface;
-
-    asio::io_context& context;
+    event_system::EventSystem& event_system;
 
     uint16_t port;
 
@@ -31,6 +30,8 @@ class GCMulticastConnection {
     std::array<char, BUFFER_SIZE> receive_data{};
     asio::mutable_buffer receive_buffer{receive_data.data(), receive_data.size()};
     asio::ip::udp::socket socket;
+
+    time::TimePoint last_multicast_set;
 
     asio::ip::address listen_address;
     asio::ip::address multicast_address;

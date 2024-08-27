@@ -20,14 +20,14 @@ struct RobotFeedbackWrapper {
 class PacketBuilder {
    public:
     PacketBuilder() = default;
-    PacketBuilder(const PacketBuilder &) = default;
-    PacketBuilder(PacketBuilder &&) = delete;
-    PacketBuilder &operator=(const PacketBuilder &) = default;
-    PacketBuilder &operator=(PacketBuilder &&) = delete;
+    PacketBuilder(const PacketBuilder&) = default;
+    PacketBuilder(PacketBuilder&&) = delete;
+    PacketBuilder& operator=(const PacketBuilder&) = default;
+    PacketBuilder& operator=(PacketBuilder&&) = delete;
     virtual ~PacketBuilder() = default;
 
-    virtual void addMessage(const RobotCommandWrapper &cmd) = 0;
-    virtual std::vector<RobotFeedbackWrapper> buildAndSend() = 0;
+    virtual void addMessage(const RobotCommandWrapper& cmd) = 0;
+    virtual void buildAndSend() = 0;
 };
 
 }  // namespace luhsoccer::robot_interface

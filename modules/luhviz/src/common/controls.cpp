@@ -1,6 +1,5 @@
 #include "include/controls.hpp"
 #include <cmath>
-#include <iostream>
 
 namespace luhsoccer::luhviz {
 

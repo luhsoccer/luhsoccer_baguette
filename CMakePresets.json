@@ -1,0 +1,187 @@
+{
+    "version": 3,
+    "cmakeMinimumRequired": {
+        "major": 3,
+        "minor": 21,
+        "patch": 0
+    },
+    "configurePresets": [
+        {
+            "name": "Base",
+            "hidden": true,
+            "displayName": "Configure preset using toolchain file",
+            "description": "Sets Ninja generator",
+            "generator": "Ninja",
+            "binaryDir": "${sourceDir}/build/${presetName}",
+            "cacheVariables": {
+                "CMAKE_TOOLCHAIN_FILE": "${sourceDir}/extern/vcpkg/scripts/buildsystems/vcpkg.cmake"
+            },
+            "environment": {
+                "VCPKG_FORCE_DOWNLOADED_BINARIES": "ON"
+            }
+        },
+        {
+            "name": "Debug",
+            "hidden": true,
+            "displayName": "Debug",
+            "description": "Builds in debug mode",
+            "inherits": [
+                "Base"
+            ],
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Debug"
+            }
+        },
+        {
+            "name": "Release",
+            "hidden": true,
+            "displayName": "Release",
+            "description": "Builds in release mode",
+            "inherits": [
+                "Base"
+            ],
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "Release"
+            }
+        },
+        {
+            "name": "RelWithDebInfo",
+            "hidden": true,
+            "displayName": "Release with debug info",
+            "description": "Builds in release mode but with additional debug info",
+            "inherits": [
+                "Base"
+            ],
+            "cacheVariables": {
+                "CMAKE_BUILD_TYPE": "RelWithDebInfo"
+            }
+        },
+        {
+            "name": "GCC",
+            "hidden": true,
+            "condition": {
+                "type": "notEquals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "gcc",
+                "CMAKE_CXX_COMPILER": "g++",
+                "VCPKG_TARGET_TRIPLET": "x64-linux"
+            }
+        },
+        {
+            "name": "Clang",
+            "hidden": true,
+            "condition": {
+                "type": "notEquals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "clang",
+                "CMAKE_CXX_COMPILER": "clang++",
+                "VCPKG_TARGET_TRIPLET": "x64-linux"
+            }
+        },
+        {
+            "name": "MSVC",
+            "hidden": true,
+            "condition": {
+                "type": "equals",
+                "lhs": "${hostSystemName}",
+                "rhs": "Windows"
+            },
+            "cacheVariables": {
+                "CMAKE_C_COMPILER": "cl",
+                "CMAKE_CXX_COMPILER": "cl",
+                "VCPKG_TARGET_TRIPLET": "x64-windows-static-md"
+            },
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            }
+        },
+        {
+            "name": "Debug/gcc",
+            "displayName": "Debug/gcc",
+            "description": "Debug build using gcc",
+            "inherits": [
+                "Debug",
+                "GCC"
+            ]
+        },
+        {
+            "name": "Release/gcc",
+            "displayName": "Release/gcc",
+            "description": "Release build using gcc",
+            "inherits": [
+                "Release",
+                "GCC"
+            ]
+        },
+        {
+            "name": "RelWithDebInfo/gcc",
+            "displayName": "RelWithDebInfo/gcc",
+            "description": "Release build with debug info using gcc",
+            "inherits": [
+                "RelWithDebInfo",
+                "GCC"
+            ]
+        },
+        {
+            "name": "Debug/clang",
+            "displayName": "Debug/clang",
+            "description": "Debug build using clang",
+            "inherits": [
+                "Debug",
+                "Clang"
+            ]
+        },
+        {
+            "name": "Release/clang",
+            "displayName": "Release/clang",
+            "description": "Release build using clang",
+            "inherits": [
+                "Release",
+                "Clang"
+            ]
+        },
+        {
+            "name": "RelWithDebInfo/clang",
+            "displayName": "RelWithDebInfo/clang",
+            "description": "Release build with debug info using clang",
+            "inherits": [
+                "RelWithDebInfo",
+                "Clang"
+            ]
+        },
+        {
+            "name": "Debug/MSVC",
+            "displayName": "Debug/MSVC",
+            "description": "Debug build using MSVC",
+            "inherits": [
+                "Debug",
+                "MSVC"
+            ]
+        },
+        {
+            "name": "Release/MSVC",
+            "displayName": "Release/MSVC",
+            "description": "Release build using MSVC",
+            "inherits": [
+                "Release",
+                "MSVC"
+            ]
+        },
+        {
+            "name": "RelWithDebInfo/MSVC",
+            "displayName": "RelWithDebInfo/MSVC",
+            "description": "Release build with debug info using MSVC",
+            "inherits": [
+                "RelWithDebInfo",
+                "MSVC"
+            ]
+        }
+    ]
+}

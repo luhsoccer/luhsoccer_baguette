@@ -5,16 +5,21 @@
 #include "observer/buffer.hpp"
 #include "observer/data_storage.hpp"
 
+#include "event_system/event_system.hpp"
+
 namespace luhsoccer::config_provider {
 struct ConfigStore;
+}
+
+namespace luhsoccer::event_system {
+class EventSystem;
 }
 
 namespace luhsoccer::observer {
 
 class Observer {
    public:  // Main Methods
-    Observer(std::weak_ptr<const transform::WorldModel> world_model);
-    Observer();
+    Observer(std::weak_ptr<const transform::WorldModel> world_model, event_system::EventSystem& event_system);
 
     /**
      * @brief Set the WorldModel for this Observer
@@ -46,7 +51,7 @@ class Observer {
      * @param ally The RobotHandle to an ally robot
      * @return std::optional<double> The goal probability in percent(%) (0.0 - 100.0)
      */
-    [[nodiscard]] std::optional<double> getGoalProbability(const RobotIdentifier& ally) const;
+    [[nodiscard]] double getGoalProbability(const RobotIdentifier& ally) const;
 
    public:  // Getter Enemy
     /**
@@ -55,7 +60,7 @@ class Observer {
      * @param enemy The handle to the enemy Robot from which we want the Threat-Level
      * @return std::optional<ThreatLevel> The Threat-Level of the given enemy Robot (only if the Robot was found)
      */
-    [[nodiscard]] std::optional<double> getThreatLevel(const RobotIdentifier& enemy) const;
+    [[nodiscard]] double getThreatLevel(const RobotIdentifier& enemy) const;
 
    public:  // Getter General
     /**
@@ -63,7 +68,7 @@ class Observer {
      *
      * @return std::optional<double> The allowed travel distance (nullopt if unlimited)
      */
-    [[nodiscard]] std::optional<double> getAllowedDribbleDistance(const RobotIdentifier& id) const;
+    [[nodiscard]] double getAllowedDribbleDistance(const RobotIdentifier& id) const;
 
     /**
      * @brief Get the Ball Goal Probability
@@ -112,7 +117,7 @@ class Observer {
      *
      * @return std::optional<transform::RobotHandle> The Robot
      */
-    [[nodiscard]] std::optional<transform::RobotHandle> getBallTouchingForbiddenRobot() const;
+    [[nodiscard]] std::optional<transform::RobotHandle> getPotentialDoubleToucher() const;
 
     /* ------------------------- Calculation Methods ------------------------- */
    private:  // Update Methods
@@ -148,16 +153,39 @@ class Observer {
      */
     void updateStrategyType(const std::shared_ptr<const transform::WorldModel>& world_model_shared);
 
+    /**
+     * @brief Fires an event if an robot has moved
+     *
+     */
+    void checkIfRobotMoved(const std::shared_ptr<const transform::WorldModel>& world_model_shared);
+
+    /**
+     * @brief Checks if an event should be fired depending on the ball position
+     *
+     * @param world_model_shared
+     */
+    void checkForBallEvent(const std::shared_ptr<const transform::WorldModel>& world_model_shared);
+
+    /**
+     * @brief Checks if the best interceptor changes
+     *
+     * @param world_model
+     */
+    void updateBestInterceptor(const std::shared_ptr<const transform::WorldModel>& world_model);
+
    private:  // Variables
     /**
      * @brief A weak-pointer to the World-Model this Observer instance works on
-     *
      */
     std::weak_ptr<const transform::WorldModel> world_model;
 
     /**
+     * @brief The Event System
+     */
+    event_system::EventSystem& event_system;
+
+    /**
      * @brief An Object which stores the calculated data in a front-back-buffer style
-     *
      */
     buffer::BackFrontBuffer<DataStorage> data_storage_buffer;
 
@@ -168,9 +196,21 @@ class Observer {
 
     std::optional<transform::RobotHandle> double_touch_last_ball_holder = std::nullopt;
 
+    std::unordered_map<RobotIdentifier, double> last_fired_threat_level{};
+
     config_provider::ConfigStore& cs;
 
     logger::Logger logger;
+
+    bool ball_left_field = false;
+
+    bool ball_entered_ally_penalty_area = false;
+
+    bool ball_entered_enemy_penalty_area = false;
+
+    bool ball_in_ally_half = false;
+
+    std::optional<transform::RobotHandle> best_interceptor{std::nullopt};
 };
 
 }  // namespace luhsoccer::observer

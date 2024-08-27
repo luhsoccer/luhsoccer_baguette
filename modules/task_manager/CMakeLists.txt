@@ -11,11 +11,10 @@ add_library(${MODULE_NAME} STATIC
 
 target_link_libraries(${MODULE_NAME}
     PRIVATE
-    role_manager
     game_data_provider
     skills
     PUBLIC
-    local_planner
+    robot_control
 )
 
 target_include_directories(${MODULE_NAME}

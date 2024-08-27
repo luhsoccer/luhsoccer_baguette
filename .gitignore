@@ -11,6 +11,8 @@
 !/.vscode/launch.json
 !/.vscode/settings.json
 !/.vscode/tasks.json
+
+/.vs
 # ignore test results
 test_detail.xml
 # Ignore clangd cache
@@ -36,3 +38,14 @@ simulator
 runtime
 
 .venv
+
+out/
+baguette_version
+
+reports/
+reports_html/
+
+compile_commands.json
+.mypy_cache
+
+/config/

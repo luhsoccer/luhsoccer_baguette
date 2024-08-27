@@ -6,12 +6,14 @@
     "C_Cpp.codeAnalysis.clangTidy.enabled": false,
     "C_Cpp.codeAnalysis.runAutomatically": false,
     "C_Cpp.formatting": "clangFormat",
-    "C_Cpp.intelliSenseEngine": "Disabled",
+    "C_Cpp.intelliSenseEngine": "disabled",
     "C_Cpp.clang_format_fallbackStyle": "Google",
     "C_Cpp.clang_format_style": "file",
     "clangd.arguments": [
         "-header-insertion=never"
     ],
+    "cmake.copyCompileCommands": "${workspaceRoot}/compile_commands.json",
+    "cmake.useCMakePresets": "always",
     "editor.formatOnSave": true,
     "editor.formatOnType": false,
     "editor.tabSize": 4,
@@ -27,9 +29,19 @@
         "ataka",
         "Kalman",
         "luhsoccer",
-        "luhviz"
+        "luhviz",
+        "octo"
     ],
-    "python.analysis.extraPaths": [
-        "./stubs"
-    ]
+    "files.exclude": {
+        "**/.git": true,
+        "**/.svn": true,
+        "**/.hg": true,
+        "**/.cache": true,
+        "**/CVS": true,
+        "**/.DS_Store": true,
+        "**/Thumbs.db": true,
+        "extern/vcpkg": true,
+    },
+    "cmake.options.statusBarVisibility": "compact",
+    "python.analysis.typeCheckingMode": "basic",
 }

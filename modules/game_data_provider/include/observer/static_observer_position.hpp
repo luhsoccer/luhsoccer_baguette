@@ -15,9 +15,9 @@ namespace luhsoccer::observer::calculation {
  * @param ally_handle A Position, a Team and a Worldmodel
  * @return std::optional<double> An Optional of the goal probability from the ball
  */
-std::optional<double> calculateGoalProbability(const transform::Position& pos, Team team,
-                                               std::shared_ptr<const transform::WorldModel> wm,
-                                               const time::TimePoint time = time::TimePoint(0));
+double calculateGoalProbability(const transform::Position& pos, Team team,
+                                std::shared_ptr<const transform::WorldModel> wm,
+                                const time::TimePoint time = time::TimePoint(0));
 
 /**
  * @brief Used to calculate the Position inside with the biggest scoring propability
@@ -38,9 +38,9 @@ std::optional<Eigen::Vector2d> calculateBestGoalPoint(const transform::Position&
  * @param time The time point
  * @return std::optional<double> The calculated ThreatScore
  */
-std::optional<double> calculateThreatLevel(const transform::Position& enemy_pos,
-                                           std::shared_ptr<const transform::WorldModel> world_model,
-                                           const time::TimePoint time = time::TimePoint(0));
+double calculateThreatLevel(const transform::Position& enemy_pos,
+                            std::shared_ptr<const transform::WorldModel> world_model,
+                            const time::TimePoint time = time::TimePoint(0));
 
 std::optional<bool> isPassLineDefended(const transform::Position& passer, const transform::Position& receiver,
                                        const Team team, std::shared_ptr<const transform::WorldModel> world_model,
@@ -87,10 +87,10 @@ std::optional<AllyRobot::BestPassReceiver> calculateBestPassReceiver(
  * @param world_model_ptr A pointer to the world model
  * @return std::optional<double> The pass probability
  */
-std::optional<double> calculatePassProbability(const transform::Position& passing_robot_pos,
-                                               const transform::Position& receiving_robot_pos, const Team team,
-                                               const std::shared_ptr<const transform::WorldModel>& world_model_ptr,
-                                               const time::TimePoint time = time::TimePoint(0));
+double calculatePassProbability(const transform::Position& passing_robot_pos,
+                                const transform::Position& receiving_robot_pos, const Team team,
+                                const std::shared_ptr<const transform::WorldModel>& world_model_ptr,
+                                const time::TimePoint time = time::TimePoint(0));
 
 std::optional<std::pair<Eigen::Vector2d, bool>> calculateShootPoint(
     const transform::Position& robot, Team team, std::shared_ptr<const transform::WorldModel> world_model,

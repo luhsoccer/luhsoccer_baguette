@@ -4,9 +4,13 @@ namespace luhsoccer::luhviz {
 
 void Plotter::init() {}
 
-void Plotter::render(std::unordered_map<std::string, marker::LinePlot>& line_plots) {
+void Plotter::render(std::unordered_map<std::string, marker::LinePlot>& line_plots, bool& open) {
+    if (!open) {
+        return;
+    }
+
     ImGui::PushStyleColor(ImGuiCol_Text, this->proxy.accent_text_color);
-    ImGui::Begin("Plotter");
+    ImGui::Begin("Plotter", &open);
     ImGui::PopStyleColor();
 
     const ImPlotAxisFlags flags_x = ImPlotAxisFlags_NoTickLabels;

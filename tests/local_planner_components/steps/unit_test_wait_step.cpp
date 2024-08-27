@@ -12,7 +12,7 @@ TEST(wait_step, DurationInSeconds) {
 
     std::string observe_frame = "observe_frame";
     std::shared_ptr<transform::WorldModel> wm = std::make_shared<transform::WorldModel>(observe_frame);
-    std::shared_ptr<AvoidanceManager> avoidance_manager = std::make_shared<AvoidanceManager>();
+    std::shared_ptr<AvoidanceManager> avoidance_manager = nullptr;
     local_planner::TaskData td(wm->getPossibleRobots().at(0));
 
     ASSERT_EQ(w.calcCommandMessage(wm, td, wm->getPossibleRobots().at(0), avoidance_manager, time::TimePoint(.1)).first,
@@ -41,7 +41,7 @@ TEST(wait_step, CheckBool) {
 
     std::string observe_frame = "observe_frame";
     std::shared_ptr<transform::WorldModel> wm = std::make_shared<transform::WorldModel>(observe_frame);
-    std::shared_ptr<AvoidanceManager> avoidance_manager = std::make_shared<AvoidanceManager>();
+    std::shared_ptr<AvoidanceManager> avoidance_manager = nullptr;
 
     local_planner::TaskData td(wm->getPossibleRobots().at(0));
 
@@ -60,7 +60,7 @@ TEST(wait_step, Timepoint) {
 
     std::string observe_frame = "observe_frame";
     std::shared_ptr<transform::WorldModel> wm = std::make_shared<transform::WorldModel>(observe_frame);
-    std::shared_ptr<AvoidanceManager> avoidance_manager = std::make_shared<AvoidanceManager>();
+    std::shared_ptr<AvoidanceManager> avoidance_manager = nullptr;
 
     local_planner::TaskData td(wm->getPossibleRobots().at(0));
 
@@ -77,7 +77,7 @@ TEST(wait_step, PositionDistanceTravelled) {
 
     std::string observe_frame = "observe_frame";
     std::shared_ptr<transform::WorldModel> wm = std::make_shared<transform::WorldModel>();
-    std::shared_ptr<AvoidanceManager> avoidance_manager = std::make_shared<AvoidanceManager>();
+    std::shared_ptr<AvoidanceManager> avoidance_manager = nullptr;
 
     local_planner::TaskData td(wm->getPossibleRobots().at(0));
     transform::TransformWithVelocity transform;
@@ -102,7 +102,7 @@ TEST(wait_step, PositionDistanceTravelledTimeout) {
 
     std::string observe_frame = "observe_frame";
     std::shared_ptr<transform::WorldModel> wm = std::make_shared<transform::WorldModel>();
-    std::shared_ptr<AvoidanceManager> avoidance_manager = std::make_shared<AvoidanceManager>();
+    std::shared_ptr<AvoidanceManager> avoidance_manager = nullptr;
 
     local_planner::TaskData td(wm->getPossibleRobots().at(0));
     transform::TransformWithVelocity transform;
@@ -130,7 +130,7 @@ TEST(wait_step, DistanceBetweenPositions) {
 
     std::string observe_frame = "observe_frame";
     std::shared_ptr<transform::WorldModel> wm = std::make_shared<transform::WorldModel>();
-    std::shared_ptr<AvoidanceManager> avoidance_manager = std::make_shared<AvoidanceManager>();
+    std::shared_ptr<AvoidanceManager> avoidance_manager = nullptr;
 
     local_planner::TaskData td(wm->getPossibleRobots().at(0));
     transform::TransformWithVelocity transform;
@@ -157,7 +157,7 @@ TEST(wait_step, DistanceBetweenPositionsTimeout) {
 
     std::string observe_frame = "observe_frame";
     std::shared_ptr<transform::WorldModel> wm = std::make_shared<transform::WorldModel>();
-    std::shared_ptr<AvoidanceManager> avoidance_manager = std::make_shared<AvoidanceManager>();
+    std::shared_ptr<AvoidanceManager> avoidance_manager = nullptr;
 
     local_planner::TaskData td(wm->getPossibleRobots().at(0));
     transform::TransformWithVelocity transform;
@@ -183,7 +183,7 @@ TEST(wait_step, WaitForBallInDribbler) {
 
     std::string observe_frame = "observe_frame";
     std::shared_ptr<transform::WorldModel> wm = std::make_shared<transform::WorldModel>();
-    std::shared_ptr<AvoidanceManager> avoidance_manager = std::make_shared<AvoidanceManager>();
+    std::shared_ptr<AvoidanceManager> avoidance_manager = nullptr;
 
     auto robot = wm->getPossibleRobots().at(0);
     local_planner::TaskData td(robot);
@@ -208,7 +208,7 @@ TEST(wait_step, WaitForBallInDribblerTimeout) {
     WaitStep w = WaitStep(WAIT_FOR_BALL, true, 0.5);
 
     std::string observe_frame = "observe_frame";
-    std::shared_ptr<AvoidanceManager> avoidance_manager = std::make_shared<AvoidanceManager>();
+    std::shared_ptr<AvoidanceManager> avoidance_manager = nullptr;
     std::shared_ptr<transform::WorldModel> wm = std::make_shared<transform::WorldModel>();
     auto robot = wm->getPossibleRobots().at(0);
     local_planner::TaskData td(robot);

@@ -1,0 +1,23 @@
+open-mr-to-main:
+  stage: workflow
+  image: python:3.11
+  before_script:
+    - ""
+  after_script:
+    - ""
+  script:
+    - pip install python-gitlab
+    - python3 .gitlab/scripts/create_main_mr.py
+
+delete-old-packages:
+  stage: workflow
+  image: python:3.11
+  before_script:
+    - ""
+  after_script:
+    - ""
+  variables:
+    DELETE_OLDER_THAN_X_DAYS: 30
+  script:
+    - pip install python-gitlab
+    - python3 .gitlab/scripts/delete_old_packages.py

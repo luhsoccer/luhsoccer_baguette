@@ -1,26 +1,36 @@
 #include "bindings.hpp"
 
-#include "local_planner/skills/skill.hpp"
 #include "utils/luts.hpp"
+#include "core/events.hpp"
 
 namespace luhsoccer::python {
 
-void createToolBindings(py::module_& baguette_module, py::class_<baguette::TheBaguette>& wrapper,
-                        baguette::TheBaguette& baguette) {
+void createToolBindings(nb::module_& baguette_module, nb::class_<baguette::TheBaguette>& wrapper) {
     // Here is the place to register more tools to the python bindings
+
+    loadEnumBindings<ssl_interface::SSLStage>(baguette_module, "GameStage");
+
+    // Event system bindings
+
+    loadClassBindings<logger::Logger>(baguette_module, "Logger");
+
+    loadToolBindings<event_system::EventSystem>(baguette_module, "NativeEventSystem");
+
+    wrapper.def_ro("native_event_system", &baguette::TheBaguette::event_system, nb::rv_policy::reference_internal);
 
     // Common bindings
     loadEnumBindings<Team>(baguette_module, "Team");
     loadEnumBindings<TeamColor>(baguette_module, "TeamColor");
+    loadEnumBindings<Division>(baguette_module, "Division");
     loadClassBindings<RobotIdentifier>(baguette_module, "RobotIdentifier");
+    loadDerivedClassBindings<StartEvent, event_system::Event>(baguette_module, "StartEvent");
+    loadDerivedClassBindings<StopEvent, event_system::Event>(baguette_module, "StopEvent");
 
     // Util bindings
     loadClassBindings<util::Lut1D>(baguette_module, "Lut1D");
     loadClassBindings<util::Lut2D>(baguette_module, "Lut2D");
 
     // Time bindings
-    loadClassBindings<time::Duration>(baguette_module, "Duration");
-    loadClassBindings<time::TimePoint>(baguette_module, "TimePoint");
     baguette_module.def("now", &time::now);
 
     // Transform bindings
@@ -33,14 +43,24 @@ void createToolBindings(py::module_& baguette_module, py::class_<baguette::TheBa
     loadClassBindings<transform::RobotHandle>(baguette_module, "RobotHandle");
     loadEnumBindings<transform::BallState>(baguette_module, "BallState");
     loadClassBindings<transform::BallInfo>(baguette_module, "BallInfo");
-    loadSharedClassBindings<transform::WorldModel>(baguette_module, "WorldModel");
+    loadClassBindings<transform::FieldData>(baguette_module, "FieldData");
+    loadClassBindings<transform::WorldModel>(baguette_module, "WorldModel");
 
     // Skills bindings
     loadEnumBindings<skills::BodSkillNames>(baguette_module, "SkillName");
-    loadClassBindings<local_planner::Skill>(baguette_module, "Skill");
+    loadEnumBindings<skills::BodSkillNames>(baguette_module, "BodSkillNames");
+    loadEnumBindings<skills::GameSkillNames>(baguette_module, "GameSkillNames");
+    loadEnumBindings<skills::TestSkillNames>(baguette_module, "TestSkillNames");
+
+    loadClassBindings<robot_control::Skill>(baguette_module, "Skill");
     loadClassBindings<skills::BodSkillBook>(baguette_module, "SkillBook");
-    wrapper.def_property_readonly(
-        "skill_book", [&](py::object& /*self*/) { return &baguette.skill_book; }, py::return_value_policy::reference);
+    loadClassBindings<skills::SkillLibrary>(baguette_module, "SkillLibrary");
+    wrapper.def_prop_ro(
+        "skill_book", [&](baguette::TheBaguette& self) { return &self.skill_lib.bod_book; },
+        nb::rv_policy::reference_internal);
+
+    wrapper.def_prop_ro(
+        "skill_lib", [&](baguette::TheBaguette& self) { return &self.skill_lib; }, nb::rv_policy::reference_internal);
 
     // Config Provider
     bindConfigs(baguette_module);

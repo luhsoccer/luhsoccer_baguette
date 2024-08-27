@@ -3,7 +3,7 @@
 #include <optional>
 #include <Eigen/Geometry>
 #include <utility>
-#include "common_types.hpp"
+#include "core/common_types.hpp"
 #include "transform/handles.hpp"
 
 namespace luhsoccer::observer {

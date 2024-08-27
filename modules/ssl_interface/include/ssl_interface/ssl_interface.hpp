@@ -1,14 +1,14 @@
 #pragma once
 
-#include <functional>
 #include <memory>
 #include <utility>
-#include <vector>
-#include <mutex>
 #include <optional>
 #include "logger/logger.hpp"
-#include "module.hpp"
+#include "core/module.hpp"
 #include "ssl_interface/ssl_types.hpp"
+#include "log_file.hpp"
+#include "event_system/event_system.hpp"
+#include "marker_service/marker_service.hpp"
 
 namespace luhsoccer::simulation_interface {
 class SimulationInterface;
@@ -27,7 +27,7 @@ enum class VisionPublishMode {
     NETWORK,
 };
 
-std::ostream& operator<<(std::ostream& os, const VisionPublishMode& mode);
+std::string_view format_as(const VisionPublishMode& mode);
 
 /**
  * @brief The source of the data that will be published to other modules
@@ -44,7 +44,7 @@ enum class VisionDataSource {
     GAME_LOG,
 };
 
-std::ostream& operator<<(std::ostream& os, const VisionDataSource& source);
+std::string_view format_as(const VisionDataSource& source);
 
 enum class GameControllerDataSource {
     /// Disable the game controller completely
@@ -57,7 +57,7 @@ enum class GameControllerDataSource {
     GAME_LOG,
 };
 
-std::ostream& operator<<(std::ostream& os, const GameControllerDataSource& source);
+std::string_view format_as(const GameControllerDataSource& source);
 
 /**
  * @brief Class for interacting with ssl software suite.
@@ -65,7 +65,8 @@ std::ostream& operator<<(std::ostream& os, const GameControllerDataSource& sourc
  */
 class SSLInterface : public BaguetteModule {
    public:
-    explicit SSLInterface(simulation_interface::SimulationInterface& simulation_interface);
+    explicit SSLInterface(simulation_interface::SimulationInterface& simulation_interface,
+                          event_system::EventSystem& event_system, marker::MarkerService& ms);
     virtual ~SSLInterface();
     SSLInterface(SSLInterface&&) = delete;
     SSLInterface(SSLInterface&) = delete;
@@ -77,12 +78,6 @@ class SSLInterface : public BaguetteModule {
      * Should be called in the same thread as the other functions.
      */
     void setup() override;
-
-    /**
-     * @brief polls on every interface and listens for data
-     * Function is blocking and a return indicates that all interfaces are closed or have failed.
-     */
-    void loop(std::atomic_bool& should_run) override;
 
     void stop() override;
 
@@ -106,20 +101,19 @@ class SSLInterface : public BaguetteModule {
                 if (source != VisionDataSource::NETWORK) {
                     this->publish(data);
                 } else {  // Don't publish when we're receiving from the network. That would result in a loop
-                    LOG_WARNING(logger,
-                                "VisionPublishMode is set to {} but VisionDataSource is also set to {}. That would "
-                                "result in a loop!",
-                                vision_publish_mode, vision_publish_mode);
+                    logger.warning(
+                        "VisionPublishMode is set to {} but VisionDataSource is also set to {}. That would "
+                        "result in a loop!",
+                        vision_publish_mode, vision_publish_mode);
                 }
             }
 
             // Check if the wrapper packet contains a vision and/or a geometry packet
             if (data.vision) {
-                handlePythonCallbacks(data.vision.value());
-                this->vision_callback(std::move(data.vision.value()));
+                event_system.fireEvent(NewVisionDataEvent(*std::move(data.vision)));
             }
             if (data.field) {
-                this->field_callback(std::move(data.field.value()));
+                event_system.fireEvent(NewFieldDataEvent(*std::move(data.field)));
             }
         }
     }
@@ -137,24 +131,8 @@ class SSLInterface : public BaguetteModule {
         static_assert(source != GameControllerDataSource::DISABLED, "Can't publish with DISABLED as source");
         // Publish only when the source is selected
         if (source == this->gamecontroller_source) {
-            this->gc_callback(std::move(data));
+            event_system.fireEvent(NewGameControllerDataEvent(std::move(data)));
         }
-    }
-
-    /**
-     * @brief Set the Vision Callback object
-     *
-     * @param callback
-     */
-    void setVisionCallback(std::function<void(SSLVisionData)> callback) { this->vision_callback = std::move(callback); }
-
-    /**
-     * @brief Set the game controller callback object
-     *
-     * @param callback
-     */
-    void setGameControllerCallback(std::function<void(SSLGameControllerData)> callback) {
-        this->gc_callback = std::move(callback);
     }
 
     /**
@@ -163,7 +141,7 @@ class SSLInterface : public BaguetteModule {
      * @param mode the new mode
      */
     void setVisionPublishMode(const VisionPublishMode mode) {
-        LOG_INFO(logger, "Change ssl interface mode from {} to {}", this->vision_publish_mode, mode);
+        logger.info("Change ssl interface mode from {} to {}", this->vision_publish_mode, mode);
         this->vision_publish_mode = mode;
     }
 
@@ -175,7 +153,7 @@ class SSLInterface : public BaguetteModule {
     [[nodiscard]] VisionPublishMode getVisionPublishMode() const { return this->vision_publish_mode; }
 
     void setVisionDataSource(const VisionDataSource source) {
-        LOG_INFO(logger, "Change vision data source from {} to {}", this->vision_source, source);
+        logger.info("Change vision data source from {} to {}", this->vision_source, source);
         this->vision_source = source;
     }
 
@@ -195,28 +173,22 @@ class SSLInterface : public BaguetteModule {
      */
     [[nodiscard]] GameControllerDataSource getGameControllerDataSource() const { return this->gamecontroller_source; }
 
-    /**
-     * @brief Set the Vision Callback object
-     *
-     * @param callback
-     */
-    void setFieldCallback(std::function<void(SSLFieldData)> callback) { this->field_callback = std::move(callback); }
-
     std::string_view moduleName() override { return "ssl_interface"; }
 
+    void playGameLog(LogFile file) {
+        this->current_game_log = std::move(file);
+        this->log_file_control_handle.stop = false;
+        this->log_file_control_handle.replay_factor = 1.0;
+        this->log_file_control_handle.current_frame = 0;
+        current_game_log->replay(*this, this->log_file_control_handle);
+    }
+
+   public:
+    marker::MarkerService& ms;
+    LogFileControlHandle log_file_control_handle;
+
    private:
-    void handlePythonCallbacks(const SSLVisionData& data);
     void publish(const SSLWrapperData& data);
-
-    std::function<void(SSLVisionData data)> vision_callback = [](const auto&) {};
-    std::function<void(SSLFieldData data)> field_callback = [](const auto&) {};
-    std::function<void(SSLGameControllerData data)> gc_callback = [](const auto&) {};
-
-    using BallCallback = std::function<void(Eigen::Vector2d, unsigned long)>;
-    using RobotCallback = std::function<void(Eigen::Vector2d, unsigned int, bool, unsigned long)>;
-
-    std::vector<BallCallback> ball_callbacks;
-    std::vector<RobotCallback> robot_callbacks;
 
     VisionPublishMode vision_publish_mode{VisionPublishMode::DISABLED};
     VisionDataSource vision_source{VisionDataSource::NETWORK};
@@ -227,7 +199,10 @@ class SSLInterface : public BaguetteModule {
     class IoBackend;
     std::unique_ptr<IoBackend> io_backend;
 
+    std::optional<LogFile> current_game_log;
+
     simulation_interface::SimulationInterface& simulation_interface;
+    event_system::EventSystem& event_system;
 };
 
 }  // namespace luhsoccer::ssl_interface

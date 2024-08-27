@@ -2,7 +2,6 @@
 #include "transform_helper/world_model_helper.hpp"
 
 namespace luhsoccer::transform::helper {
-
 [[nodiscard]] std::optional<Eigen::Vector2d> getPosition(const transform::RobotHandle& handle,
                                                          const time::TimePoint time) {
     const auto tf_pos = handle.getPosition();
@@ -28,16 +27,6 @@ namespace luhsoccer::transform::helper {
     Eigen::Vector3d result;
     result << affine->translation(), Eigen::Rotation2Dd(affine->rotation()).angle();
     return result;
-}
-
-[[nodiscard]] std::optional<Eigen::Vector3d> getVelocity(const transform::RobotHandle& handle,
-                                                         const time::TimePoint time) {
-    const auto tf_pos = handle.getPosition();
-    const auto world_model = handle.getWorldModel().lock();
-    if (world_model == nullptr) return std::nullopt;
-
-    auto vel = tf_pos.getVelocity(world_model, world_model->getGlobalFrame(), world_model->getGlobalFrame(), time);
-    return vel;
 }
 
 [[nodiscard]] std::optional<Eigen::Vector2d> getBallPosition(const transform::WorldModel& wm,

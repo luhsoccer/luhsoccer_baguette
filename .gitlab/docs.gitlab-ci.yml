@@ -1,0 +1,42 @@
+build-doxygen:linux:
+  stage: build
+  needs: []
+  cache: []
+  script:
+    - cd docs
+    - doxygen
+    - ./quick-fix.sh
+    - echo $CI_JOB_ID > job_id.txt
+  artifacts:
+    expire_in: 1 week
+    paths:
+      - docs/html
+      - docs/job_id.txt
+
+announce-docs-in-mr:
+  stage: deploy
+  image: python:3.11
+  needs: [build-doxygen:linux]
+  before_script:
+    - ""
+  after_script:
+    - ""
+  script:
+    - pip install python-gitlab
+    - export DOCS_JOB_ID=$(cat docs/job_id.txt)
+    - python3 .gitlab/scripts/announce_docs_in_mr.py
+
+pages:
+  stage: deploy
+  cache: []
+  needs: ["test:linux", "build-doxygen:linux"]
+  script:
+    - mkdir public
+    - mv build/html/* public/
+    - mv docs/html/* public/
+  artifacts:
+    paths:
+      - public
+    expire_in: 1 day
+  only:
+    - main

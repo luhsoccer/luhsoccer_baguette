@@ -1,3 +1,5 @@
+#pragma once
+
 #include "transform/handles.hpp"
 
 namespace luhsoccer::observer::calculation::goal_probability {
@@ -7,11 +9,13 @@ std::optional<std::vector<Eigen::Vector2d>> calculateShadows(const transform::Po
                                                              std::optional<RobotIdentifier> id_to_ignore = std::nullopt,
                                                              const time::TimePoint time = time::TimePoint(0));
 
-std::vector<Eigen::Vector2d> cutShadows(const std::vector<Eigen::Vector2d>& points);
+std::vector<Eigen::Vector2d> cutShadows(const std::vector<Eigen::Vector2d>& points,
+                                        std::shared_ptr<const transform::WorldModel> wm);
 
 std::vector<Eigen::Vector2d> combineShadows(std::vector<Eigen::Vector2d> shadows);
 
-std::vector<Eigen::Vector2d> invertShadows(const std::vector<Eigen::Vector2d>& points);
+std::vector<Eigen::Vector2d> invertShadows(const std::vector<Eigen::Vector2d>& points,
+                                           std::shared_ptr<const transform::WorldModel> wm);
 
 [[nodiscard]] std::optional<double> distanceToRobotsTargetGoal(const transform::RobotHandle& handle,
                                                                const time::TimePoint time = time::TimePoint(0));

@@ -11,16 +11,16 @@ namespace luhsoccer::observer {
     return data->second.best_pass_receiver;
 }
 
-[[nodiscard]] std::optional<double> DataStorage::getGoalProbability(const RobotIdentifier& ally) const {
+[[nodiscard]] double DataStorage::getGoalProbability(const RobotIdentifier& ally) const {
     const auto data = this->ally_robots.find(ally);
-    if (data == this->ally_robots.end()) return std::nullopt;
+    if (data == this->ally_robots.end()) return 0;
     return data->second.goal_probability;
 }
 
-[[nodiscard]] std::optional<double> DataStorage::getThreatLevel(const RobotIdentifier& enemy) const {
+[[nodiscard]] double DataStorage::getThreatLevel(const RobotIdentifier& enemy) const {
     const auto data = this->enemy_robots.find(enemy);
     if (data == this->enemy_robots.end()) {
-        return std::nullopt;
+        return 0;
     }
     return data->second.threat_score;
 }
@@ -48,7 +48,7 @@ namespace luhsoccer::observer {
     return this->last_ball_toucher;
 }
 
-[[nodiscard]] std::optional<transform::RobotHandle> DataStorage::getBallTouchingForbiddenRobot() const {
+[[nodiscard]] std::optional<transform::RobotHandle> DataStorage::getPotentialDoubleToucher() const {
     return this->ball_touch_forbidden_robot;
 }
 

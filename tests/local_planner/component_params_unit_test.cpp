@@ -5,6 +5,7 @@
 #include "../helper/id_provider.hpp"
 
 #include "config_provider/config_store_main.hpp"
+#include "config/config_structs.hpp"
 
 namespace luhsoccer::local_planner {
 

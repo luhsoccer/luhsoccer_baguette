@@ -6,7 +6,7 @@
 #include <functional>
 #include <unordered_map>
 
-#include "common_types.hpp"
+#include "core/common_types.hpp"
 
 #include "observer/robot_datatypes.hpp"
 
@@ -31,7 +31,7 @@ class DataStorage {
      * @param ally The RobotHandle to an ally robot
      * @return std::optional<double> The goal probability in percent(%) (0.0 - 100.0)
      */
-    [[nodiscard]] std::optional<double> getGoalProbability(const RobotIdentifier& ally) const;
+    [[nodiscard]] double getGoalProbability(const RobotIdentifier& ally) const;
 
    public:  // Getter Enemy
     /**
@@ -40,7 +40,7 @@ class DataStorage {
      * @param enemy The handle to the enemy Robot from which we want the Threat-Level
      * @return std::optional<double> The Threat-Level of the given enemy Robot (only if the Robot was found)
      */
-    [[nodiscard]] std::optional<double> getThreatLevel(const RobotIdentifier& enemy) const;
+    [[nodiscard]] double getThreatLevel(const RobotIdentifier& enemy) const;
 
    public:  // Getter General
     /**
@@ -90,7 +90,7 @@ class DataStorage {
      *
      * @return std::optional<transform::RobotHandle> The Robot
      */
-    [[nodiscard]] std::optional<transform::RobotHandle> getBallTouchingForbiddenRobot() const;
+    [[nodiscard]] std::optional<transform::RobotHandle> getPotentialDoubleToucher() const;
 
    public:  // General Methods
     /**
@@ -186,7 +186,7 @@ class DataStorage {
      *
      * @param handle The Robot
      */
-    void setBallTouchingForbiddenRobot(std::optional<transform::RobotHandle> handle);
+    void setPotentialDoubleToucher(std::optional<transform::RobotHandle> handle);
 
    private:  // Variables / Data
     /**

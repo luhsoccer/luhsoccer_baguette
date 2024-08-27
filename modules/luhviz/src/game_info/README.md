@@ -1,0 +1,2 @@
+# Game info
+The game info gets the data via the DataProxy from the GameController interface in the software. It uses the name of the teams to load the corresponding icon of the team from the [CMAKE_RC](../../../../extern/cmake_rc/README.md) filesystem. The icons are displayed via ImGui images next to the team names and the score. Also there are displayed the yellow and red cards of each team and the number of robots on the field.

@@ -4,9 +4,8 @@
 #include "imgui.h"
 #include "logger/logger.hpp"
 #include "include/data_proxy.hpp"
-#include "robot_identifier.hpp"
-#include <imgui_internal.h>
-#include "imgui_backend/imgui_stdlib.h"
+#include "core/robot_identifier.hpp"
+#include "imgui_stdlib.h"
 #include "common/include/utils.hpp"
 #include "common/include/fonts.hpp"
 
@@ -20,7 +19,7 @@ class SkillTester {
 
     // ----- methods -----
     void init();
-    void render();
+    void render(bool& open);
 
    private:
     static constexpr int MARGIN_TOP = 28;
@@ -33,12 +32,27 @@ class SkillTester {
     static constexpr float DEFAULT_INPUT_WIDTH = 200;
     static constexpr float DEFAULT_INPUT_WIDTH_SM = 120;
 
+    int num_related_robots{0};
+    int num_required_points{0};
+    int num_required_bools{0};
+    int num_required_doubles{0};
+    int num_required_ints{0};
+    int num_required_strings{0};
+    bool related_robots_dynamic{false};
+    bool required_points_dynamic{false};
+    bool required_bools_dynamic{false};
+    bool required_doubles_dynamic{false};
+    bool required_ints_dynamic{false};
+    bool required_strings_dynamic{false};
+    int selected_skill_index{4};
+    bool first_load = true;
+
     // ----- members -----
     logger::Logger logger{"luhviz/skill_tester"};
     DataProxy& proxy;
     Fonts& fonts;
-    std::optional<local_planner::Skill*> selected_skill;
-    std::optional<local_planner::Skill*> selected_skill2;
+    std::optional<robot_control::Skill*> selected_skill;
+    std::optional<robot_control::Skill*> selected_skill2;
 
     const std::string teams{"ally\0enemy\0\0"s};
 
@@ -83,6 +97,18 @@ class SkillTester {
      */
     void renderSecondSkillChooser(const std::vector<size_t>& available_robot_ids,
                                   const std::vector<size_t>& available_related_robot_ids);
+
+    /**
+     * @brief displays an item in the list to choose a related robot for the skill
+     *
+     */
+    void displayChooseRobotItem(size_t i, std::vector<int>& related_robot_indices);
+
+    /**
+     * @brief loads the number of params per param type needed for the skill
+     *
+     */
+    void loadRelatedParamsCounts();
 
     /**
      * @brief Get all available Robot Ids

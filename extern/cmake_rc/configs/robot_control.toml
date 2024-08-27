@@ -1,0 +1,40 @@
+["01 - Robot"]
+robot_max_vel_theta = 12.0
+robot_max_vel_x = 4.0
+robot_max_vel_y = 3.0
+
+["02 - Gains"]
+rotation_k_p = 8.0
+target_k_p = 6.5
+
+["03 - Drive with Ball"]
+turn_around_ball_max_vel_theta = 1.5
+turn_around_ball_rot_k_p = 2.0
+turn_around_ball_trans_k_p = 2.0
+turn_with_ball_x_vel_from_rotation = 0.0
+turn_with_ball_y_vel_from_rotation = 0.01
+
+["04 - Obstacle"]
+obstacle_better_grouping = false
+obstacle_collision_max_vel = 5.0
+obstacle_grouping_distance = 0.3
+obstacle_influence_distance = 3.0
+obstacle_k_cf = 1.294
+obstacle_max_vel_k = 0.751
+
+["05 - Relaxation Factor"]
+rel_factors_w1_k = 0.5
+rel_factors_w2_k = 0.5
+
+["06 - Kicking"]
+kick_bonus = 2.0
+
+["07 - Stop State"]
+stop_state_free_kick_margin = 0.1
+stop_state_min_ball_dist = 0.6
+
+["08 - Simulation"]
+simulation_frequency = 20
+stop_state_min_ball_dist = 0.6
+
+["99 - Testing"]

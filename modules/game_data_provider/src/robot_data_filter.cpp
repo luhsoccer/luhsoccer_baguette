@@ -1,9 +1,11 @@
 #include <utility>
 
 #include "robot_data_filter.hpp"
+#include "config/robot_control_config.hpp"
 #include "robot_interface/robot_interface_types.hpp"
-#include "visit.hpp"
+#include "core/visit.hpp"
 #include "config_provider/config_store_main.hpp"
+#include "config/game_data_provider_config.hpp"
 
 namespace luhsoccer::game_data_provider {
 
@@ -76,13 +78,13 @@ std::pair<Vector6d, Matrix6d> KalmanFilter::predictStepCommand(Vector6d robot_st
             diff *= std::min(1.0, decrease_max / abs(diff));
         }
     };
-    const auto& config = config_provider::ConfigProvider::getConfigStore().local_planner_components_config;
-    limit_acc(acc.x(), vel_local.x(), config.robot_acc_max_x * config_gdp.kalman_acc_scale,
-              config.robot_brk_max_x * config_gdp.kalman_acc_scale);
-    limit_acc(acc.y(), vel_local.y(), config.robot_acc_max_y * config_gdp.kalman_acc_scale,
-              config.robot_brk_max_y * config_gdp.kalman_acc_scale);
-    limit_acc(acc.z(), vel_local.z(), config.robot_acc_max_theta * config_gdp.kalman_acc_scale,
-              config.robot_brk_max_theta * config_gdp.kalman_acc_scale);
+    const auto& config = config_provider::ConfigProvider::getConfigStore().robot_control_config;
+    limit_acc(acc.x(), vel_local.x(), config.robot_max_acc_x * config_gdp.kalman_acc_scale,
+              config.robot_max_brk_x * config_gdp.kalman_acc_scale);
+    limit_acc(acc.y(), vel_local.y(), config.robot_max_acc_y * config_gdp.kalman_acc_scale,
+              config.robot_max_brk_y * config_gdp.kalman_acc_scale);
+    limit_acc(acc.z(), vel_local.z(), config.robot_max_acc_theta * config_gdp.kalman_acc_scale,
+              config.robot_max_brk_theta * config_gdp.kalman_acc_scale);
 
     // convert back to global
     acc.head(2) = rotation_matrix * acc.head(2);
@@ -153,21 +155,19 @@ std::pair<Vector6d, Matrix6d> KalmanFilter::correctionStepVision(const Vector6d&
     return {corrected_robot_state, corrected_robot_p};
 }
 
-std::ostream& operator<<(std::ostream& out, const RobotFilterMode value) {
-    static std::map<RobotFilterMode, std::string> strings;
-    if (strings.size() == 0) {
-        // adding string name to map if it's the first time the function is called
-// NOLINTNEXTLINE(cppcoreguidelines-macro-usage)
-#define INSERT_ELEMENT(p) strings[p] = #p
-        INSERT_ELEMENT(RobotFilterMode::OUT_OF_FIELD);
-        INSERT_ELEMENT(RobotFilterMode::VISION_WITH_FEEDBACK);
-        INSERT_ELEMENT(RobotFilterMode::VISION_WITH_COMMAND);
-        INSERT_ELEMENT(RobotFilterMode::VISION);
-        INSERT_ELEMENT(RobotFilterMode::ROBOT_FEEDBACK);
-#undef INSERT_ELEMENT
+std::string_view format_as(const RobotFilterMode& mode) {
+    switch (mode) {
+        case RobotFilterMode::OUT_OF_FIELD:
+            return "OUT_OF_FIELD";
+        case RobotFilterMode::VISION_WITH_FEEDBACK:
+            return "VISION_WITH_FEEDBACK";
+        case RobotFilterMode::VISION_WITH_COMMAND:
+            return "VISION_WITH_COMMAND";
+        case RobotFilterMode::VISION:
+            return "VISION";
+        case RobotFilterMode::ROBOT_FEEDBACK:
+            return "ROBOT_FEEDBACK";
     }
-
-    return out << strings[value];
 }
 
 RobotDataFilter::RobotDataFilter(const RobotIdentifier& id, std::string global_frame, time::Duration invalid_interval,
@@ -204,12 +204,12 @@ void RobotDataFilter::updateMode(time::TimePoint time) {
     }
     this->latest_info.on_field = {this->mode != RobotFilterMode::OUT_OF_FIELD, time};
     if (mode_before != this->mode)
-        LOG_DEBUG(this->logger, "Switching RobotFilter for {} from {} to {} .", this->id, mode_before, this->mode);
+        this->logger.debug("Switching RobotFilter for {} from {} to {} .", this->id, mode_before, this->mode);
 }
 
 bool RobotDataFilter::setBallInDribbler(bool ball_in_dribbler, time::TimePoint time) {
     if (time == time::TimePoint(0)) time = time::now();
-    if (this->latest_info.has_ball->second > time) return false;
+    if (this->latest_info.has_ball.has_value() && this->latest_info.has_ball->second > time) return false;
     this->latest_info.has_ball = {ball_in_dribbler, time};
     return true;
 }
@@ -225,7 +225,7 @@ bool RobotDataFilter::addVisionData(const Eigen::Affine2d& transform, double pro
     if (this->kalman_state.has_value() &&
         ((this->kalman_state->head(2) - transform.translation()).norm() > RESET_DISTANCE ||
          this->kalman_state->hasNaN())) {
-        LOG_WARNING(this->logger, "Resetting filter of {}", this->id);
+        this->logger.warning("Resetting filter of {}", this->id);
         this->kalman_state = std::nullopt;
         this->kalman_p = std::nullopt;
     }
@@ -261,7 +261,7 @@ bool RobotDataFilter::addVisionData(const Eigen::Affine2d& transform, double pro
                     this->kalman_p.value()(2, 2) = INITIAL_COVARIANCE;
                     this->last_vision_position = kalman_state->head(3);
                     this->latest_info.transform = {transform, time::now()};
-                    LOG_DEBUG(this->logger, "Initializing filter states for {}", this->id);
+                    this->logger.debug("Initializing filter states for {}", this->id);
                     return true;
 
                 } else if (this->mode == RobotFilterMode::VISION_WITH_FEEDBACK) {
@@ -464,6 +464,7 @@ transform::AllyRobotData RobotDataFilter::getLatestRobotData() {
         (res.time - this->latest_info.cap_voltage->second) < this->invalid_interval) {
         res.cap_voltage = this->latest_info.cap_voltage->first;
     }
+
     return res;
 }
 

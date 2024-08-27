@@ -1,11 +1,9 @@
 #include <glad/glad.h>
 #include <vector>
-#include "game_controller_window/include/game_controller_window.hpp"
 #include "imgui.h"
-#include "imgui_backend/imgui_impl_glfw.h"
-#include "imgui_backend/imgui_impl_opengl3.h"
+#include "imgui_impl_glfw.h"
+#include "imgui_impl_opengl3.h"
 #include <GLFW/glfw3.h>
-#include <iostream>
 #include <fstream>
 #include "info_display/include/info_display.hpp"
 #include "marker_service/marker_service.hpp"
@@ -16,9 +14,10 @@
 #include "game_data_provider/game_data_provider.hpp"
 #include "config/config_store.hpp"
 #include "config_provider/config_store_main.hpp"
+#include "config/game_config.hpp"
 #include "simulation_interface/simulation_interface.hpp"
-#include "local_planner/local_planner_module.hpp"
-#include "skill_books/bod_skill_book.hpp"
+#include "robot_control/robot_control_module.hpp"
+#include "skill_books/skill_library.hpp"
 #include <imgui_internal.h>
 #include <csignal>
 #include <filesystem>
@@ -32,14 +31,17 @@
 #include "luhviz/luhviz.hpp"
 #include "include/data_proxy.hpp"
 #include "cmrc/cmrc.hpp"
-#include "robot_info_display/include/robot_info_display.hpp"
+#include "robert_display/include/robert_display.hpp"
 #include "skill_tester/include/skill_tester.hpp"
 #include "skill_wizard/include/skill_wizard.hpp"
 #include "robot_controller/include/robot_controller.hpp"
+#include "game_log/include/game_log.hpp"
 #include "marker_service/marker_2d_impl.hpp"
 #include "marker_service/marker_impl.hpp"
 #include "marker_service/luhviz_impl.hpp"
-#include "logger/gui_sink.hpp"
+#include "imgui_internal.h"
+#include "software_manager/software_manager.hpp"
+#include "software_manager/include/software_manager.hpp"
 
 CMRC_DECLARE(luhviz);
 
@@ -48,21 +50,22 @@ namespace luhsoccer::luhviz {
 const static logger::Logger LOGGER{"luhviz"};
 
 static void glfwErrorCallback(int error, const char* description) {
-    LOG_ERROR(LOGGER, "Glfw Error: {}: {}", error, description);
+    LOGGER.error("Glfw Error: {}: {}", error, description);
 }
 
 class LuhvizMain::LuhvizMainImpl {
    public:
-    LuhvizMainImpl(marker::MarkerService& ms, ssl_interface::SSLInterface& ssl,
+    LuhvizMainImpl(software_manager::SoftwareManager& sm, marker::MarkerService& ms, ssl_interface::SSLInterface& ssl,
                    simulation_interface::SimulationInterface& sim, game_data_provider::GameDataProvider& gdp,
-                   local_planner::LocalPlannerModule& local_planner, skills::BodSkillBook& skill_book,
+                   robot_control::RobotControlModule& robot_control, skills::SkillLibrary& skill_lib,
                    robot_interface::RobotInterface& robot_interface, scenario::ScenarioExecutor& scenario_executor)
-        : marker_service(ms),
+        : sm(sm),
+          marker_service(ms),
           ssl(ssl),
           sim{sim},
           gdp(gdp),
-          local_planner(local_planner),
-          skill_book(skill_book),
+          robot_control(robot_control),
+          skill_lib(skill_lib),
           robot_interface(robot_interface),
           scenario_executor(scenario_executor){};
 
@@ -70,7 +73,7 @@ class LuhvizMain::LuhvizMainImpl {
         if (std::getenv("BAGUETTE_HEADLESS")) {
             // TODO: don't disable everything from luhviz
             // web api should be enabled
-            LOG_INFO(LOGGER, "Starting in headless mode");
+            logger.info("Starting in headless mode");
         } else {
             this->enable = true;
             init();
@@ -81,7 +84,7 @@ class LuhvizMain::LuhvizMainImpl {
         // Setup window
         glfwSetErrorCallback(glfwErrorCallback);
         if (!glfwInit()) {
-            LOG_ERROR(LOGGER, "could not init glfw");
+            logger.error("could not init glfw");
             return;
         }
         constexpr bool DEBUGGING_OPENGL = false;
@@ -92,23 +95,27 @@ class LuhvizMain::LuhvizMainImpl {
         glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
         // sample 4 times to enable MSAA Antialiasing
         glfwWindowHint(GLFW_SAMPLES, 4);
-        // open window in maxed version so one can see the bottom right away
-        glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
+
+        // When enabling this, the multi viewport features does not work as expected. So don't enable it!!
+        // glfwWindowHint(GLFW_MAXIMIZED, GLFW_TRUE);
         const GLFWvidmode* mode = glfwGetVideoMode(glfwGetPrimaryMonitor());
 
         // Create window with graphics context
         window = glfwCreateWindow(mode->width, mode->height, "Luhviz", nullptr, nullptr);
         if (window == nullptr) {
-            LOG_ERROR(LOGGER, "could not create glfw window");
+            logger.error("could not create glfw window");
             return;
         }
+        // set window min size
+        glfwSetWindowSizeLimits(window, 200, 200, GLFW_DONT_CARE, GLFW_DONT_CARE);
+
         glfwMakeContextCurrent(window);
         int swap_interval = this->proxy.getConfigBool(luhviz_config_name, "enable_vsync") ? 1 : 0;
         glfwSwapInterval(swap_interval);  // Enable vsync (= 1)
         // glad: load all OpenGL function pointers
         // ---------------------------------------
         if (!gladLoadGLLoader((GLADloadproc)(glfwGetProcAddress))) {
-            LOG_ERROR(LOGGER, "failed to initialise glad");
+            logger.error("failed to initialise glad");
             return;
         }
 
@@ -144,19 +151,20 @@ class LuhvizMain::LuhvizMainImpl {
         glfwSetWindowIcon(window, 4, images);
 
         // create modules
-        this->main_window = std::make_unique<MainWindow>(proxy);
+        this->main_window = std::make_unique<MainWindow>(proxy, window);
         this->debugger = std::make_unique<Debugger>(fonts, proxy);
         this->inspector = std::make_unique<Inspector>(fonts, proxy);
         this->game_info = std::make_unique<GameInfo>(proxy, fonts);
+        this->game_log = std::make_unique<GameLog>(proxy, fonts);
+        this->software_manager = std::make_unique<SoftwareManager>(proxy, fonts);
         this->render_view = std::make_unique<RenderView>(this->marker_service, proxy, context);
         this->config = std::make_unique<LuhvizConfig>(proxy);
         this->skill_tester = std::make_unique<SkillTester>(proxy, fonts);
-        this->skill_wizard = std::make_unique<SkillWizard>();
+        // this->skill_wizard = std::make_unique<SkillWizard>();
         this->robot_controller = std::make_unique<RobotController>(proxy);
-        this->robot_info_display = std::make_unique<RobotInfoDisplay>(proxy);
+        this->robert_display = std::make_unique<RobertDisplay>(proxy);
         this->info_display = std::make_unique<InfoDisplay>(proxy);
         this->plotter = std::make_unique<Plotter>(proxy);
-        this->gc_window = std::make_unique<GameControllerWindow>(proxy);
 
         std::unique_ptr<GLBuffer> vertex_buffer = std::make_unique<GLBuffer>();
         std::unique_ptr<GLBuffer> uv_buffer = std::make_unique<GLBuffer>();
@@ -174,12 +182,11 @@ class LuhvizMain::LuhvizMainImpl {
         game_info->init();
         config->init();
         skill_tester->init();
-        skill_wizard->init();
+        // skill_wizard->init();
         robot_controller->init();
-        robot_info_display->init();
+        robert_display->init();
         info_display->init();
         plotter->init();
-        gc_window->init();
 
         using namespace std::this_thread;  // sleep_for, sleep_until
         using namespace std::chrono;       // nanoseconds, system_clock, seconds
@@ -192,7 +199,7 @@ class LuhvizMain::LuhvizMainImpl {
         }
 
         clearSplashScreen(vertex_buffer, uv_buffer, program, splashscreen, vertex_array);
-        LOG_INFO(LOGGER, "luhviz initialized after {} ms loading time", load_time);
+        logger.info("luhviz initialized after {} ms loading time", load_time);
     }
 
     void stop() {
@@ -234,7 +241,7 @@ class LuhvizMain::LuhvizMainImpl {
             out << default_layout;
             out.close();
 
-            LOG_INFO(LOGGER, "luhviz window layout .ini not found, using the default one as fallback");
+            logger.info("luhviz window layout .ini not found, using the default one as fallback");
         }
         io.IniFilename = window_layout_file.c_str();
 
@@ -269,6 +276,9 @@ class LuhvizMain::LuhvizMainImpl {
         bool TEST_MODE = false;
         marker::MarkerTest test{this->marker_service, this->gdp};
 
+        bool renderview_fullscreen = false;
+        bool reload_layout = false;
+
         // Main loop
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(0, 0));
         while (!glfwWindowShouldClose(window) && should_run) {
@@ -295,52 +305,58 @@ class LuhvizMain::LuhvizMainImpl {
                     // TEST_MODE = false;
                 }
 
-                main_window->render(last_fps, parameter_settings_open, skill_wizard_open, robot_controller_open,
-                                    game_controller_open);
+                reload_layout = main_window->render(last_fps, parameter_settings_open, skill_wizard_open,
+                                                    robot_controller_open, renderview_fullscreen);
+
+                auto& layout_handler = main_window->getWindowLayoutHandler();
+                layout_handler.setFullscreen(renderview_fullscreen);
 
                 // get copy of all markers from marker_service and filter them by the selected checkboxes in the
                 // inspector
                 auto luhviz_markers = marker_service.getLuhvizMarkers();
                 inspector->createMarkerNs(*luhviz_markers);
                 styleWindow();
-                inspector->render();
-                inspector->filterMarkers(*luhviz_markers);
+                inspector->render(layout_handler.getInspectorOpen());
+                inspector->filterMarkers(*luhviz_markers, layout_handler.getInspectorOpen());
 
                 // give the filtered markers to the renderview
                 render_view->update(*luhviz_markers);
                 render_view->render();
                 styleWindow();
-                render_view->renderToTexture();
+                render_view->renderToTexture(layout_handler.getRenderViewOpen());
 
                 styleWindow();
-                game_info->render();
+                game_info->render(layout_handler.getGameInfoOpen());
 
                 styleWindow();
-                debugger->render();
+                game_log->render(layout_handler.getGameLogOpen());
+
+                styleWindow();
+                software_manager->render(layout_handler.getSoftwareManagerOpen());
+
+                styleWindow();
+                debugger->render(layout_handler.getConsoleOpen());
 
                 styleWindow();
                 config->render(&parameter_settings_open);
 
                 styleWindow();
-                skill_tester->render();
+                skill_tester->render(layout_handler.getManipulatorOpen());
 
                 styleWindow();
-                skill_wizard->render(&skill_wizard_open);
+                // skill_wizard->render(&skill_wizard_open);
 
                 styleWindow();
                 robot_controller->render(&robot_controller_open, this->active_controllers);
 
                 styleWindow();
-                robot_info_display->render(luhviz_markers->robot_info_markers);
+                robert_display->render(luhviz_markers->robot_info_markers, layout_handler.getRobertDisplayOpen());
 
                 styleWindow();
-                info_display->render(luhviz_markers->info_markers);
+                info_display->render(luhviz_markers->info_markers, layout_handler.getInfoDisplayOpen());
 
                 styleWindow();
-                plotter->render(luhviz_markers->plots);
-
-                styleWindow();
-                gc_window->render(&game_controller_open);
+                plotter->render(luhviz_markers->plots, layout_handler.getPlotterOpen());
 
                 proxy.update();
             }
@@ -384,6 +400,16 @@ class LuhvizMain::LuhvizMainImpl {
 
                 // update dataproxy states for dropdown / selections
                 proxy.pollSelections();
+            }
+
+            // handle reloading the default window layout
+            if (reload_layout) {
+                auto fs = cmrc::luhviz::get_filesystem();
+                auto layout = fs.open(default_window_layout_path);
+                std::string default_layout{layout.begin(), layout.end()};
+
+                ImGui::LoadIniSettingsFromMemory(default_layout.c_str(), default_layout.length());
+                reload_layout = false;
             }
         }
         ImGui::PopStyleVar();
@@ -607,7 +633,7 @@ class LuhvizMain::LuhvizMainImpl {
             skill_tester.reset();
             skill_wizard.reset();
             robot_controller.reset();
-            robot_info_display.reset();
+            robert_display.reset();
             this->context.reset();
 
             // Cleanup
@@ -626,12 +652,13 @@ class LuhvizMain::LuhvizMainImpl {
     luhsoccer::logger::Logger logger{"luhviz/luhviz_main"};
 
     // module references
+    luhsoccer::software_manager::SoftwareManager& sm;
     luhsoccer::marker::MarkerService& marker_service;
     luhsoccer::ssl_interface::SSLInterface& ssl;
     simulation_interface::SimulationInterface& sim;
     luhsoccer::game_data_provider::GameDataProvider& gdp;
-    local_planner::LocalPlannerModule& local_planner;
-    skills::BodSkillBook& skill_book;
+    robot_control::RobotControlModule& robot_control;
+    skills::SkillLibrary& skill_lib;
     robot_interface::RobotInterface& robot_interface;
     scenario::ScenarioExecutor& scenario_executor;
 
@@ -649,13 +676,10 @@ class LuhvizMain::LuhvizMainImpl {
     Fonts fonts{};
 
     std::unique_ptr<GLContext> context;
-    luhsoccer::luhviz::DataProxy proxy{this->ssl,
-                                       this->sim,
-                                       this->local_planner,
-                                       this->skill_book,
-                                       this->robot_interface,
-                                       this->gdp,
-                                       this->scenario_executor};
+    luhsoccer::luhviz::DataProxy proxy{this->sm,        this->ssl,
+                                       this->sim,       this->robot_control,
+                                       this->skill_lib, this->robot_interface,
+                                       this->gdp,       this->scenario_executor};
     std::unique_ptr<MainWindow> main_window;
     std::unique_ptr<Debugger> debugger;
     std::unique_ptr<Inspector> inspector;
@@ -663,17 +687,17 @@ class LuhvizMain::LuhvizMainImpl {
     std::unique_ptr<RenderView> render_view;
     std::unique_ptr<LuhvizConfig> config;
     std::unique_ptr<SkillTester> skill_tester;
+    std::unique_ptr<GameLog> game_log;
+    std::unique_ptr<SoftwareManager> software_manager;
     std::unique_ptr<SkillWizard> skill_wizard;
     std::unique_ptr<RobotController> robot_controller;
-    std::unique_ptr<RobotInfoDisplay> robot_info_display;
+    std::unique_ptr<RobertDisplay> robert_display;
     std::unique_ptr<InfoDisplay> info_display;
     std::unique_ptr<Plotter> plotter;
-    std::unique_ptr<GameControllerWindow> gc_window;
 
     bool parameter_settings_open = false;
     bool skill_wizard_open = false;
     bool robot_controller_open = false;
-    bool game_controller_open = false;
 
     GLFWwindow* window{};
 
@@ -696,42 +720,68 @@ class LuhvizMain::LuhvizMainImpl {
         }
 
         // controller input
-        for (const size_t& conti : active_controllers) {
+        for (const size_t& cont_id : active_controllers) {
             GLFWgamepadstate state;
 
-            if (glfwGetGamepadState(conti, &state)) {
+            if (glfwGetGamepadState(cont_id, &state)) {
                 if (state.buttons[GLFW_GAMEPAD_BUTTON_X]) {
-                    proxy.gamepadButtonInput(GamepadControls::BUTTON_KICKER, GLFW_PRESS, conti, current_time);
+                    proxy.gamepadButtonInput(GamepadControls::BUTTON_KICKER, GLFW_PRESS, cont_id, current_time);
                 }
 
                 if (state.buttons[GLFW_GAMEPAD_BUTTON_B]) {
-                    proxy.gamepadButtonInput(GamepadControls::BUTTON_DRIBBLER, GLFW_PRESS, conti, current_time);
+                    proxy.gamepadButtonInput(GamepadControls::BUTTON_DRIBBLER, GLFW_PRESS, cont_id, current_time);
                 } else if (!state.buttons[GLFW_GAMEPAD_BUTTON_B]) {
-                    proxy.gamepadButtonInput(GamepadControls::BUTTON_DRIBBLER, GLFW_RELEASE, conti, current_time);
+                    proxy.gamepadButtonInput(GamepadControls::BUTTON_DRIBBLER, GLFW_RELEASE, cont_id, current_time);
+                }
+
+                if (state.buttons[GLFW_GAMEPAD_BUTTON_A]) {
+                    proxy.gamepadButtonInput(GamepadControls::BUTTON_GET_BALL, GLFW_PRESS, cont_id, current_time);
+                } else if (!state.buttons[GLFW_GAMEPAD_BUTTON_A]) {
+                    proxy.gamepadButtonInput(GamepadControls::BUTTON_GET_BALL, GLFW_RELEASE, cont_id, current_time);
+                }
+
+                if (state.buttons[GLFW_GAMEPAD_BUTTON_Y]) {
+                    proxy.gamepadButtonInput(GamepadControls::BUTTON_GO_TO_GOAL, GLFW_PRESS, cont_id, current_time);
+                } else if (!state.buttons[GLFW_GAMEPAD_BUTTON_Y]) {
+                    proxy.gamepadButtonInput(GamepadControls::BUTTON_GO_TO_GOAL, GLFW_RELEASE, cont_id, current_time);
                 }
 
                 if (state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_UP]) {
-                    proxy.gamepadButtonInput(GamepadControls::BUTTON_VOLTAGE_UP, GLFW_PRESS, conti, current_time);
+                    proxy.gamepadButtonInput(GamepadControls::BUTTON_VOLTAGE_UP, GLFW_PRESS, cont_id, current_time);
                 } else if (!state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_UP]) {
-                    proxy.gamepadButtonInput(GamepadControls::BUTTON_VOLTAGE_UP, GLFW_RELEASE, conti, current_time);
+                    proxy.gamepadButtonInput(GamepadControls::BUTTON_VOLTAGE_UP, GLFW_RELEASE, cont_id, current_time);
                 }
 
                 if (state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_DOWN]) {
-                    proxy.gamepadButtonInput(GamepadControls::BUTTON_VOLTAGE_DOWN, GLFW_PRESS, conti, current_time);
+                    proxy.gamepadButtonInput(GamepadControls::BUTTON_VOLTAGE_DOWN, GLFW_PRESS, cont_id, current_time);
                 } else if (!state.buttons[GLFW_GAMEPAD_BUTTON_DPAD_DOWN]) {
-                    proxy.gamepadButtonInput(GamepadControls::BUTTON_VOLTAGE_DOWN, GLFW_RELEASE, conti, current_time);
+                    proxy.gamepadButtonInput(GamepadControls::BUTTON_VOLTAGE_DOWN, GLFW_RELEASE, cont_id, current_time);
+                }
+
+                if (state.buttons[GLFW_GAMEPAD_BUTTON_START]) {
+                    proxy.gamepadButtonInput(GamepadControls::BUTTON_TOGGLE_KICKER_CHIPPER, GLFW_PRESS, cont_id,
+                                             current_time);
+                } else if (!state.buttons[GLFW_GAMEPAD_BUTTON_START]) {
+                    proxy.gamepadButtonInput(GamepadControls::BUTTON_TOGGLE_KICKER_CHIPPER, GLFW_RELEASE, cont_id,
+                                             current_time);
                 }
 
                 // handle axes
                 float x = state.axes[GLFW_GAMEPAD_AXIS_LEFT_X];
                 float y = -state.axes[GLFW_GAMEPAD_AXIS_LEFT_Y];
+                float rx = state.axes[GLFW_GAMEPAD_AXIS_RIGHT_X];
+                float ry = -state.axes[GLFW_GAMEPAD_AXIS_RIGHT_Y];
                 float trigger_left = (state.axes[GLFW_GAMEPAD_AXIS_LEFT_TRIGGER] + 1) * 2.0f;
                 float trigger_right = (state.axes[GLFW_GAMEPAD_AXIS_RIGHT_TRIGGER] + 1) * 2.0f;
 
-                // LOG_WARNING(LOGGER, trigger_left - trigger_right);
+                // logger.warning(trigger_left - trigger_right);
+                if (trigger_right >= 1) {
+                    proxy.gamepadButtonInput(GamepadControls::BUTTON_KICKER, GLFW_PRESS, cont_id, current_time);
+                }
 
-                proxy.gamepadAxesInput(x, y, trigger_left - trigger_right, conti,
-                                       this->robot_controller->isGlobalSteering());
+                proxy.gamepadAxesInput(x, y, rx, ry, trigger_left - trigger_right, cont_id,
+                                       this->robot_controller->isGlobalSteering(),
+                                       this->robot_controller->isPointBasedSteering());
             }
         }
 
@@ -752,13 +802,20 @@ class LuhvizMain::LuhvizMainImpl {
         int state_kick = glfwGetKey(window, GLFW_KEY_ENTER);
         int state_dribbler = glfwGetKey(window, GLFW_KEY_SPACE);
 
+        int state_get_ball = glfwGetKey(window, GLFW_KEY_G);
+        int state_go_to_goal = glfwGetKey(window, GLFW_KEY_H);
+        int rx = -(glfwGetKey(window, GLFW_KEY_LEFT) - glfwGetKey(window, GLFW_KEY_RIGHT));
+        int ry = (glfwGetKey(window, GLFW_KEY_UP) - glfwGetKey(window, GLFW_KEY_DOWN));
+        int state_toggle_chipper = glfwGetKey(window, GLFW_KEY_R);
+
         float x = -(state_left - state_right);
         float y = (state_up - state_down);
 
         size_t keyboard_id = GLFW_JOYSTICK_LAST + 1;
 
-        proxy.gamepadAxesInput(x, y, state_left_rot - state_right_rot, keyboard_id,
-                               this->robot_controller->isGlobalSteering());
+        proxy.gamepadAxesInput(x, y, rx, ry, state_left_rot - state_right_rot, keyboard_id,
+                               this->robot_controller->isGlobalSteering(),
+                               this->robot_controller->isPointBasedSteering());
 
         if (state_kick) {
             proxy.gamepadButtonInput(GamepadControls::BUTTON_KICKER, GLFW_PRESS, keyboard_id, current_time);
@@ -768,6 +825,18 @@ class LuhvizMain::LuhvizMainImpl {
             proxy.gamepadButtonInput(GamepadControls::BUTTON_DRIBBLER, GLFW_PRESS, keyboard_id, current_time);
         } else if (!state_dribbler) {
             proxy.gamepadButtonInput(GamepadControls::BUTTON_DRIBBLER, GLFW_RELEASE, keyboard_id, current_time);
+        }
+
+        if (state_get_ball) {
+            proxy.gamepadButtonInput(GamepadControls::BUTTON_GET_BALL, GLFW_PRESS, keyboard_id, current_time);
+        } else if (!state_get_ball) {
+            proxy.gamepadButtonInput(GamepadControls::BUTTON_GET_BALL, GLFW_RELEASE, keyboard_id, current_time);
+        }
+
+        if (state_go_to_goal) {
+            proxy.gamepadButtonInput(GamepadControls::BUTTON_GO_TO_GOAL, GLFW_PRESS, keyboard_id, current_time);
+        } else if (!state_go_to_goal) {
+            proxy.gamepadButtonInput(GamepadControls::BUTTON_GO_TO_GOAL, GLFW_RELEASE, keyboard_id, current_time);
         }
 
         if (state_voltage_up) {
@@ -782,15 +851,24 @@ class LuhvizMain::LuhvizMainImpl {
             proxy.gamepadButtonInput(GamepadControls::BUTTON_VOLTAGE_DOWN, GLFW_RELEASE, keyboard_id, current_time);
         }
 
+        if (state_toggle_chipper) {
+            proxy.gamepadButtonInput(GamepadControls::BUTTON_TOGGLE_KICKER_CHIPPER, GLFW_PRESS, keyboard_id,
+                                     current_time);
+        } else if (!state_toggle_chipper) {
+            proxy.gamepadButtonInput(GamepadControls::BUTTON_TOGGLE_KICKER_CHIPPER, GLFW_RELEASE, keyboard_id,
+                                     current_time);
+        }
+
         proxy.publishRobotData(current_time);
     }
 };
 
-LuhvizMain::LuhvizMain(marker::MarkerService& ms, ssl_interface::SSLInterface& ssl,
-                       simulation_interface::SimulationInterface& sim, game_data_provider::GameDataProvider& gdp,
-                       local_planner::LocalPlannerModule& local_planner, skills::BodSkillBook& skill_book,
-                       robot_interface::RobotInterface& robot_interface, scenario::ScenarioExecutor& scenario_executor)
-    : implementation(std::make_unique<LuhvizMainImpl>(ms, ssl, sim, gdp, local_planner, skill_book, robot_interface,
+LuhvizMain::LuhvizMain(software_manager::SoftwareManager& sm, marker::MarkerService& ms,
+                       ssl_interface::SSLInterface& ssl, simulation_interface::SimulationInterface& sim,
+                       game_data_provider::GameDataProvider& gdp, robot_control::RobotControlModule& robot_control,
+                       skills::SkillLibrary& skill_lib, robot_interface::RobotInterface& robot_interface,
+                       scenario::ScenarioExecutor& scenario_executor)
+    : implementation(std::make_unique<LuhvizMainImpl>(sm, ms, ssl, sim, gdp, robot_control, skill_lib, robot_interface,
                                                       scenario_executor)){};
 LuhvizMain::~LuhvizMain() = default;
 

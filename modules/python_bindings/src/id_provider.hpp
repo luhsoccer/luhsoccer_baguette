@@ -1,6 +1,6 @@
 #pragma once
 
-#include "robot_identifier.hpp"
+#include "core/robot_identifier.hpp"
 
 namespace luhsoccer::python {
 

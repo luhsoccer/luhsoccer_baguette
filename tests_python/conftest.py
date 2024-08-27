@@ -1,47 +1,18 @@
-import _baguette_py as baguette
 import pytest
-import time
+import baguette_py as baguette
 
 
 @pytest.fixture
-def baguette_instance() -> baguette.Baguette:
-    return baguette.getInstance()
+def baguette_instance():
+    instance = baguette.Baguette.getInstance()
+    yield instance
 
-
-@pytest.fixture
-def sim_instance(baguette_instance: baguette.Baguette) -> baguette.Baguette:
-    baguette_instance.start()
-    baguette_instance.ssl_interface.setVisionDataSource(
-        baguette.VisionDataSource.Simulation
-    )
-    baguette_instance.ssl_interface.setGameControllerDataSource(
-        baguette.GamecontrollerDataSource.Network
-    )
-    baguette_instance.robot_interface.setConnectionType(
-        baguette.RobotConnection.Simulation
-    )
-    baguette_instance.simulation_interface.switchConnector(
-        baguette.SimulationConnectorType.ErForceSimulation
-    )
-    return baguette_instance
-
-
-@pytest.fixture
-def clean_sim_instance(sim_instance: baguette.Baguette) -> baguette.Baguette:
-    wm = sim_instance.game_data_provider.getWorldModel()
-    for robot in wm.getPossibleAllyRobots():
-        sim_instance.simulation_interface.teleportRobot(
-            [0.0, 0.0, 0.0], robot.getID(), [0.0, 0.0, 0.0], False
+    if not instance._started:
+        print(
+            "Baguette instance was not started. Perhaps you forgot use the @start_config decorator."
         )
-        sim_instance.local_planner_module.cancelTask(robot.getID())
-    for robot in wm.getPossibleEnemyRobots():
-        sim_instance.simulation_interface.teleportRobot(
-            [0.0, 0.0, 0.0], robot.getID(), [0.0, 0.0, 0.0], False
-        )
-        sim_instance.local_planner_module.cancelTask(robot.getID())
 
-    sim_instance.simulation_interface.teleportBall([0.0, 0.0, 0.0])
-    return sim_instance
+    assert instance._started
 
 
 @pytest.fixture
@@ -50,8 +21,8 @@ def ssl_interface(baguette_instance: baguette.Baguette) -> baguette.SSLInterface
 
 
 @pytest.fixture
-def role_manager(baguette_instance: baguette.Baguette) -> baguette.RoleManager:
-    return baguette_instance.role_manager
+def marker_service(baguette_instance: baguette.Baguette) -> baguette.MarkerService:
+    return baguette_instance.marker_service
 
 
 @pytest.fixture
@@ -62,22 +33,10 @@ def game_data_provider(
 
 
 @pytest.fixture
-def marker_service(baguette_instance: baguette.Baguette) -> baguette.MarkerService:
-    return baguette_instance.marker_service
+def skill_library(baguette_instance: baguette.Baguette) -> baguette.SkillLibrary:
+    return baguette_instance.skill_library
 
 
 @pytest.fixture
 def skill_book(baguette_instance: baguette.Baguette) -> baguette.SkillBook:
     return baguette_instance.skill_book
-
-
-@pytest.fixture
-def task_manager(baguette_instance: baguette.Baguette) -> baguette.TaskManager:
-    return baguette_instance.task_manager
-
-
-@pytest.fixture
-def simulation_interface(
-    baguette_instance: baguette.Baguette,
-) -> baguette.SimulationInterface:
-    return baguette_instance.simulation_interface

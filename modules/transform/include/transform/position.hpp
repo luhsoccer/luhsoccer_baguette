@@ -59,10 +59,10 @@ class Position {
      * @param time point in time at which the velocity is given
      * @return std::optional<Eigen::Vector3d> velocity of frame of position
      */
-    [[nodiscard]] std::optional<Eigen::Vector3d> getVelocity(const std::shared_ptr<const WorldModel>& wm,
-                                                             const Position& other_position = "",
-                                                             const Position& observation_position = "",
-                                                             const time::TimePoint& time = time::TimePoint(0)) const;
+    [[nodiscard]] std::optional<Eigen::Vector3d> getVelocity(
+        const std::shared_ptr<const WorldModel>& wm, const Position& other_position = "",
+        const Position& observation_position = "", const time::TimePoint& time = time::TimePoint(0),
+        const time::Duration& averaging_interval = time::Duration(WorldModel::DEFAULT_AVERAGING_INTERVAL)) const;
 
     /// set the position in given frame
     void setPosition(const Eigen::Affine2d& position) { this->position = position; };
@@ -72,6 +72,9 @@ class Position {
 
     /// get frame of position
     [[nodiscard]] inline std::string getFrame() const { return frame; };
+
+    /// get the position as string to visualize
+    [[nodiscard]] std::string getString() const;
 
    private:
     /// position in frame

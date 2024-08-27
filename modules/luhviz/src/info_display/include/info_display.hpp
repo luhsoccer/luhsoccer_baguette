@@ -5,16 +5,13 @@
 #include "common/include/fonts.hpp"
 #include "include/data_proxy.hpp"
 
-#define IMGUI_DEFINE_MATH_OPERATORS
-#include "imgui_internal.h"
-
 namespace luhsoccer::luhviz {
 
 class InfoDisplay {
    public:
     InfoDisplay(DataProxy& proxy) : proxy(proxy) {}
     void init();
-    void render(std::unordered_map<std::string, std::unordered_map<size_t, marker::Info>>& infos);
+    void render(std::map<std::string, std::map<std::string, marker::Info>>& infos, bool& open);
 
    private:
     luhsoccer::logger::Logger logger{"luhviz/info_display"};

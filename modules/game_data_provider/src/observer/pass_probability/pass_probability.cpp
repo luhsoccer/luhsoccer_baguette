@@ -1,6 +1,7 @@
 
 #include "utils/utils.hpp"
 #include "config_provider/config_store_main.hpp"
+#include "config/observer_config.hpp"
 
 #include "observer/misc/misc.hpp"
 #include "transform_helper/world_model_helper.hpp"
@@ -198,7 +199,8 @@ std::optional<double> calculatePassProbability(const transform::Position& passin
 
         const double dist = utility::calculateDistance(p1, p2);
 
-        const double intercept_probability = 2 * interceptor_coverage_radius - dist;
+        const double intercept_probability =
+            (2 * interceptor_coverage_radius - dist) / (2 * interceptor_coverage_radius);
         pass_probability *= intercept_probability;
     }
 
@@ -241,7 +243,7 @@ std::optional<std::pair<Eigen::Vector2d, Eigen::Vector2d>> calculateCirclePoints
     const double distance = dist_denom / dist_nomin;
 
     // check that the interceptor is close enough to the line between the passer & receiver
-    if (distance < interceptor_radius) return std::nullopt;
+    if (distance > interceptor_radius) return std::nullopt;
 
     const auto receiver_interceptor_vec = interceptor - robot2;
 

@@ -2,13 +2,13 @@
 
 #include <utility>
 
-#include "local_planner/skills/skill.hpp"
+#include "robot_control/skills/skill.hpp"
 #include "config/config_store.hpp"
 
 namespace luhsoccer::skills {
 
 #define SKILL_DEFS                 \
-    using namespace local_planner; \
+    using namespace robot_control; \
     using TD_Pos = ComponentPosition::TaskDataType;
 
 template <typename T>
@@ -24,8 +24,9 @@ class SkillBuilder {
     SkillBuilder& operator=(SkillBuilder&&) = delete;
     virtual ~SkillBuilder() = default;
 
-    const local_planner::Skill build(const config_provider::ConfigStore& cs) {
+    const robot_control::Skill build(const config_provider::ConfigStore& cs) {
         this->buildImpl(cs);
+        assert(skill.steps.size() > 0);
         return this->skill;
     }
 
@@ -41,12 +42,20 @@ class SkillBuilder {
 
     template <typename T>
     void addStep(T&& s) {
-        static_assert(std::is_base_of<local_planner::AbstractStep, T>::value);
+        static_assert(std::is_base_of<robot_control::AbstractStep, T>::value);
         this->skill.steps.push_back(std::make_shared<T>(std::forward<T>(s)));
     }
 
+    void addStepPtr(const std::shared_ptr<const robot_control::AbstractStep>& s) { this->skill.steps.push_back(s); }
+
+    void addSteps(const std::vector<std::shared_ptr<const robot_control::AbstractStep>>& steps) {
+        for (const auto& step : steps) {
+            this->skill.steps.push_back(step);
+        }
+    }
+
    private:
-    local_planner::Skill skill;
+    robot_control::Skill skill;
 };
 
 }  // namespace luhsoccer::skills

@@ -38,6 +38,8 @@ struct LuhvizInternalConfig : public Config {
         createStringParam("disabled_namespaces", "the disabled inspector namespaces", luhviz_group, "");
 
     // selected bottom sources
+    IntParam selected_source_preset =
+        createIntParam("selected_source_preset", "saves the selected source preset", luhviz_group, 0);
     IntParam selected_vision_source =
         createIntParam("selected_vision_source", "saves the selected source", luhviz_group, 0);
     IntParam selected_simulation_connector =
@@ -46,8 +48,8 @@ struct LuhvizInternalConfig : public Config {
         createIntParam("selected_robot_connector", "saves the selected source", luhviz_group, 0);
     IntParam selected_vision_upstream =
         createIntParam("selected_vision_upstream", "saves the selected source", luhviz_group, 0);
-    IntParam selected_gamelog_source =
-        createIntParam("selected_gamelog_source", "saves the selected source", luhviz_group, 0);
+    IntParam selected_gamecontroller_source =
+        createIntParam("selected_gamecontroller_source", "saves the selected source", luhviz_group, 0);
     DoubleParam selected_controler_velocity =
         createDoubleParam("selected_controler_velocity", "saves the movement velocity", luhviz_group, 1.0f, 0.0f, 5.0f);
 
@@ -85,5 +87,18 @@ struct LuhvizInternalConfig : public Config {
     // GC executable path
     StringParam gc_path =
         createStringParam("gc_path", "path to the executable of the game controller", luhviz_group, "empty");
+
+    // window layout things
+    BoolParam render_view_open = createBoolParam("render_view_open", "bla", luhviz_group, true);
+    BoolParam inspector_open = createBoolParam("inspector_open", "bli", luhviz_group, true);
+    BoolParam game_info_open = createBoolParam("game_info_open", "blubb", luhviz_group, true);
+    BoolParam game_log_open = createBoolParam("game_log_open", "blubb", luhviz_group, true);
+    BoolParam software_manager_open = createBoolParam("software_manager_open", "fsioe", luhviz_group, true);
+    BoolParam robert_display_open = createBoolParam("robert_display_open", "digga", luhviz_group, true);
+    BoolParam info_display_open = createBoolParam("info_display_open", "do", luhviz_group, true);
+    BoolParam manipulator_open = createBoolParam("manipulator_open", "da", luhviz_group, true);
+    BoolParam console_open = createBoolParam("console_open", "ki", luhviz_group, true);
+    BoolParam plotter_open = createBoolParam("plotter_open", "ku", luhviz_group, true);
+    BoolParam fullscreen = createBoolParam("fullscreen", "juhu", luhviz_group, false);
 };
 }  // namespace luhsoccer::config_provider

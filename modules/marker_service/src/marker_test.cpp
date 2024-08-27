@@ -143,7 +143,7 @@ void MarkerTest::displayTestMarkers() {
     x += add;
 
     // GoalBorder
-    marker::GoalBorder goal_border({global_frame, x, y, 0}, "models", 3);
+    marker::GoalBorderDivB goal_border({global_frame, x, y, 0}, "models", 3);
     goal_border.setColor(Color::random());
     goal_border.setHeight(height);
     ms.displayMarker(goal_border);

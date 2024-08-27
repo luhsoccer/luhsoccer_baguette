@@ -3,7 +3,9 @@
 #include <optional>
 #include <Eigen/Geometry>
 #include <time/time.hpp>
-#include "common_types.hpp"
+#include "core/common_types.hpp"
+#include "event_system/event.hpp"
+
 namespace luhsoccer::ssl_interface {
 /**
  * @brief A struct that wraps the ssl vision data about a single robot
@@ -186,6 +188,20 @@ struct SSLWrapperData {
     // TODO maybe add geometry data
 };
 
+class NewVisionDataEvent : public event_system::Event {
+   public:
+    NewVisionDataEvent(SSLVisionData data) : data(std::move(data)) {}
+
+    SSLVisionData data;
+};
+
+class NewFieldDataEvent : public event_system::Event {
+   public:
+    NewFieldDataEvent(SSLFieldData data) : data(std::move(data)) {}
+
+    SSLFieldData data;
+};
+
 enum class SSLCommandType {
     // All robots should completely stop moving.
     HALT = 0,
@@ -289,6 +305,58 @@ struct SSLTeamInfo {
     std::optional<bool> ball_placement_failures_reached;
 };
 
+enum class SSLStage : int {
+    // The first half is about to start.
+    // A kickoff is called within this stage.
+    // This stage ends with the NORMAL_START.
+    NORMAL_FIRST_HALF_PRE = 0,
+
+    // The first half of the normal game, before half time.
+    NORMAL_FIRST_HALF = 1,
+
+    // Half time between first and second halves.
+    NORMAL_HALF_TIME = 2,
+
+    // The second half is about to start.
+    // A kickoff is called within this stage.
+    // This stage ends with the NORMAL_START.
+    NORMAL_SECOND_HALF_PRE = 3,
+
+    // The second half of the normal game, after half time.
+    NORMAL_SECOND_HALF = 4,
+
+    // The break before extra time.
+    EXTRA_TIME_BREAK = 5,
+
+    // The first half of extra time is about to start.
+    // A kickoff is called within this stage.
+    // This stage ends with the NORMAL_START.
+    EXTRA_FIRST_HALF_PRE = 6,
+
+    // The first half of extra time.
+    EXTRA_FIRST_HALF = 7,
+
+    // Half time between first and second extra halves.
+    EXTRA_HALF_TIME = 8,
+
+    // The second half of extra time is about to start.
+    // A kickoff is called within this stage.
+    // This stage ends with the NORMAL_START.
+    EXTRA_SECOND_HALF_PRE = 9,
+
+    // The second half of extra time.
+    EXTRA_SECOND_HALF = 10,
+
+    // The break before penalty shootout.
+    PENALTY_SHOOTOUT_BREAK = 11,
+
+    // The penalty shootout.
+    PENALTY_SHOOTOUT = 12,
+
+    // The game is over.
+    POST_GAME = 13,
+};
+
 /**
  * @brief The data from the game controller
  *
@@ -305,6 +373,12 @@ struct SSLGameControllerData {
      *
      */
     std::optional<SSLCommandType> next_command;
+
+    /**
+     * @brief The Current stage of the game
+     * e.g. Game End (POST_GAME), ...
+     */
+    SSLStage stage;
 
     /**
      * @brief The team info of the blue team
@@ -335,4 +409,12 @@ struct SSLGameControllerData {
      */
     std::optional<Eigen::Vector2d> designated_position;
 };
+
+class NewGameControllerDataEvent : public event_system::Event {
+   public:
+    NewGameControllerDataEvent(SSLGameControllerData data) : data(std::move(data)) {}
+
+    SSLGameControllerData data;
+};
+
 }  // namespace luhsoccer::ssl_interface

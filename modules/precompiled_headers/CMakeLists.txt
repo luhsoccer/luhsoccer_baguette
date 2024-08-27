@@ -12,15 +12,19 @@ target_precompile_headers(pch
 )
 
 find_package(Eigen3 REQUIRED)
+find_package(PkgConfig REQUIRED)
+pkg_check_modules(tomlplusplus REQUIRED IMPORTED_TARGET tomlplusplus)
+
+
+find_package(Eigen3 REQUIRED)
 find_package(fmt REQUIRED)
-#find_package(spdlog REQUIRED)
 
 target_link_libraries(
     ${MODULE_NAME}
     PUBLIC
     Eigen3::Eigen
     fmt::fmt
-#    spdlog::spdlog
+    PkgConfig::tomlplusplus
 )
 
 target_include_directories(

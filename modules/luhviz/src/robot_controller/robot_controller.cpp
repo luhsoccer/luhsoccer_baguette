@@ -1,5 +1,4 @@
 #include "robot_controller/include/robot_controller.hpp"
-#include <imgui_internal.h>
 
 namespace luhsoccer::luhviz {
 
@@ -25,7 +24,6 @@ void RobotController::render(bool* open, const std::vector<size_t>& active_contr
         return;
     }
 
-
     ImGui::PushStyleColor(ImGuiCol_Text, this->proxy.accent_text_color);
     ImGui::Begin("Robot Controller", open, ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoDocking);
     ImGui::PopStyleColor();
@@ -35,6 +33,20 @@ void RobotController::render(bool* open, const std::vector<size_t>& active_contr
 
     ImGui::SetCursorPosX(10);
     ImGui::Checkbox("Global Movement", &global_movement);
+
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(200);
+    ImGui::Checkbox("Point-Based Movement", &point_based_movement);
+
+    // Radio buttons for directions
+    ImGui::Text("Select the orientation (in which direction opens the ally goal?)");
+    ImGui::RadioButton("North", &this->proxy.getGlobalMovementDir(), this->proxy.MOVEMENT_DIR_NORTH);
+    ImGui::SameLine();
+    ImGui::RadioButton("East", &this->proxy.getGlobalMovementDir(), this->proxy.MOVEMENT_DIR_EAST);
+    ImGui::SameLine();
+    ImGui::RadioButton("South", &this->proxy.getGlobalMovementDir(), this->proxy.MOVEMENT_DIR_SOUTH);
+    ImGui::SameLine();
+    ImGui::RadioButton("West", &this->proxy.getGlobalMovementDir(), this->proxy.MOVEMENT_DIR_WEST);
 
     int i = 0;
     for (const auto& c : active_controllers) {
@@ -54,7 +66,8 @@ void RobotController::render(bool* open, const std::vector<size_t>& active_contr
     const float text_y = 5;
     ImGui::SetCursorPos({ImGui::GetCursorPosX() + text_x, ImGui::GetCursorPosY() + text_y});
     ImGui::Text(
-        "Keyboard control: \n\tWASD -> Movement      \t\t\tQE -> Rotation \n\tSPACE -> dribbler on/off \t\tENTER -> "
+        "Keyboard control: \n\tWASD -> Movement      \t\t\tQE -> Rotation \n\tSPACE -> dribbler on/off \t\t R -> "
+        "Toggle Chipper \n\tENTER -> "
         "Kick");
 
     ImGui::End();
@@ -100,10 +113,6 @@ void RobotController::displayControllRobotUI(const std::vector<size_t>& active_c
 
             // update robot reference
             conti_data.robot_id = this->robot_ids[selection];
-
-            // disable for localplanner
-            this->proxy.setLocalPlannerDisabledForRobot(this->robot_ids[selection], true);
-
         } else {
             if (conti_data.robot_id.has_value()) {
                 this->proxy.setLocalPlannerDisabledForRobot(conti_data.robot_id.value(), false);
@@ -112,15 +121,16 @@ void RobotController::displayControllRobotUI(const std::vector<size_t>& active_c
         }
     }
 
-    // display kick voltage
+    // display kick velocity
     const float offset_x = 150;
     const float item_width = 100;
     const float drag_speed = 0.05;
     const float vel_max = 3.0;
     const float rot_vel_max = 8.0;
-    ImGui::SameLine();
+
+    ImGui::NewLine();
     ImGui::SetCursorPosX(offset_x);
-    ImGui::Text("Kick-Voltage: %d", this->proxy.getKickVoltage());
+    ImGui::Text("Chipper-On: %d", this->proxy.getChipperOn());
 
     // render velocity settings
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + margin.x);
@@ -136,6 +146,14 @@ void RobotController::displayControllRobotUI(const std::vector<size_t>& active_c
     ImGui::SetCursorPosX(offset_x);
     ImGui::SetNextItemWidth(item_width);
     ImGui::DragFloat("##RVelocity", &this->proxy.getRotationVelocity(), drag_speed, 0.0, rot_vel_max, "%.2f");
+
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + margin.x);
+    ImGui::Text("Kick velocity:");
+    ImGui::SameLine();
+    ImGui::SetCursorPosX(offset_x);
+    ImGui::SetNextItemWidth(item_width);
+    ImGui::DragFloat("##KVelocity", &this->proxy.getKickVelocity(), drag_speed, proxy.MIN_KICK_VELOCITY,
+                     proxy.MAX_KICK_VELOCITY, "%.1f");
 }
 
 void RobotController::manageControllerRegistration(const std::vector<size_t>& active_controllers) {
@@ -175,5 +193,7 @@ void RobotController::manageControllerRegistration(const std::vector<size_t>& ac
 }
 
 bool RobotController::isGlobalSteering() { return this->global_movement; }
+
+bool RobotController::isPointBasedSteering() { return this->point_based_movement; }
 
 }  // namespace luhsoccer::luhviz

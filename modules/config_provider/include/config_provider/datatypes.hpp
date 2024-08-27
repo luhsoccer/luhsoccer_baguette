@@ -1,8 +1,6 @@
 
 #pragma once
 
-#include <iostream>
-
 namespace luhsoccer::config_provider::datatypes {
 
 /**

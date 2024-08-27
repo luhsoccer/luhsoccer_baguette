@@ -3,4 +3,7 @@ BasedOnStyle: Google
 IndentWidth: 4
 ColumnLimit: 120
 SortIncludes: false
-
+DerivePointerAlignment: false
+PointerAlignment: Left
+# Only supported in clang-format > 14
+# QualifierAlignment: Left

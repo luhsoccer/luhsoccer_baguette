@@ -1,6 +1,6 @@
 #include "connections/simulation.hpp"
 #include "simulation_interface/simulation_interface.hpp"
-#include "visit.hpp"
+#include "core/visit.hpp"
 
 namespace luhsoccer::robot_interface {
 
@@ -36,11 +36,15 @@ proto::RobotCommand serializeRobotCommand(const RobotCommand& cmd) {
     if (cmd.kick_command) {
         const auto kick_command = cmd.kick_command.value();
         auto proto_kick_command = proto_cmd.mutable_kick_command();
-        proto_kick_command->set_kick_velocity(static_cast<float>(kick_command.kick_velocity));
-        proto_kick_command->set_chip_velocity(static_cast<float>(kick_command.chip_velocity));
-        if (kick_command.cap_voltage) {
-            proto_kick_command->set_cap_voltage(kick_command.cap_voltage.value());
+
+        if (kick_command.type == KickType::KICK) {
+            proto_kick_command->set_kick_velocity(static_cast<float>(kick_command.velocity));
+            proto_kick_command->set_chip_velocity(0.0f);
+        } else if (kick_command.type == KickType::CHIP) {
+            proto_kick_command->set_kick_velocity(0.0f);
+            proto_kick_command->set_chip_velocity(static_cast<float>(kick_command.velocity));
         }
+
         switch (kick_command.execute_time) {
             case KickExecuteTime::NOW:
                 proto_kick_command->set_execute_time(proto::KickCommand::ExecuteTime::KickCommand_ExecuteTime_NOW);
@@ -91,19 +95,19 @@ void SimulationPacketBuilder::addMessage(const RobotCommandWrapper& cmd) {
     }
 }
 
-std::vector<RobotFeedbackWrapper> SimulationPacketBuilder::buildAndSend() {
-    std::vector<RobotFeedbackWrapper> result;
-
+void SimulationPacketBuilder::buildAndSend() {
     if (send_blue) {
         connection.send(blue_control, TeamColor::BLUE);
     }
     if (send_yellow) {
         connection.send(yellow_control, TeamColor::YELLOW);
     }
+}
 
-    std::lock_guard guard(connection.last_feedbacks_mutex);
-
-    for (const auto& feedback : connection.last_feedbacks) {
+SimulationConnection::SimulationConnection(std::function<void(RobotFeedbackWrapper)> on_feedback,
+                                           simulation_interface::SimulationInterface& interface)
+    : on_feedback(std::move(on_feedback)), interface(interface) {
+    this->interface.setRobotOutput([this](const proto::RobotFeedback& feedback, TeamColor /*color*/) {
         RobotFeedbackWrapper wrapper{};
         wrapper.color = feedback.is_blue() ? TeamColor::BLUE : TeamColor::YELLOW;
         wrapper.id = feedback.id();
@@ -129,18 +133,10 @@ std::vector<RobotFeedbackWrapper> SimulationPacketBuilder::buildAndSend() {
             telemetry.capacitor_voltage = feedback.telemetry().cap_voltage();
             wrapper.feedback.telemetry = telemetry;
         }
-        result.push_back(wrapper);
-    }
-    connection.last_feedbacks.clear();
 
-    return result;
-}
+        wrapper.feedback.telemetry_rf = {-30.0, -35.0, 0.0};
 
-SimulationConnection::SimulationConnection(simulation_interface::SimulationInterface& interface)
-    : interface(interface) {
-    this->interface.setRobotOutput([this](const proto::RobotFeedback& feedback, TeamColor /*color*/) {
-        std::lock_guard guard(this->last_feedbacks_mutex);
-        this->last_feedbacks.push_back(feedback);
+        this->on_feedback(wrapper);
     });
 }
 

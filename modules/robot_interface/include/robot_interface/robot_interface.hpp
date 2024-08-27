@@ -2,9 +2,8 @@
 
 #include <utility>
 
-#include "module.hpp"
-#include "robot_identifier.hpp"
-#include "robot_interface/callback_handler.hpp"
+#include "core/module.hpp"
+#include "core/robot_identifier.hpp"
 #include "robot_interface/robot_interface_types.hpp"
 #include <mutex>
 
@@ -25,17 +24,12 @@ enum class RobotConnection {
     NETWORK,
     /// Use a serial connection to communicate with the base station
     SERIAL,
-    /// Use a serial connection to communicate with the old base station. Legacy mode.
-    SERIAL_LEGACY,
     /// Use only the simulation and not use a real base station
     SIMULATION,
-    /// Use only the simulation in a legacy mode.
-    SIMULATION_LEGACY,
 };
 
-std::ostream& operator<<(std::ostream& os, const RobotConnection& source);
+std::string_view format_as(const RobotConnection& type);
 
-class SerialConnection;
 class NetworkConnection;
 class SimulationConnection;
 class PacketBuilder;
@@ -51,24 +45,8 @@ class RobotInterface : public BaguetteModule {
 
     std::string_view moduleName() override { return "robot_interface"; }
 
-    void addCallback(const CallbackList<std::pair<RobotIdentifier, RobotFeedback>>::CallbackPtrBase& callback) {
-        robot_feedback_callbacks.registerCallback(callback);
-    };
-
-    void removeCallback(const CallbackList<std::pair<RobotIdentifier, RobotFeedback>>::CallbackPtrBase& callback) {
-        robot_feedback_callbacks.deregisterCallback(callback);
-    }
-
-    void addCommandCallback(const CallbackList<std::pair<uint32_t, RobotCommand>>::CallbackPtrBase& callback) {
-        robot_command_callbacks.registerCallback(callback);
-    };
-
-    void removeCommandCallback(const CallbackList<std::pair<uint32_t, RobotCommand>>::CallbackPtrBase& callback) {
-        robot_command_callbacks.deregisterCallback(callback);
-    }
-
-    void setup() override;
-    void loop(std::atomic_bool& should_run) override;
+    void setup(event_system::EventSystem& event_system) override;
+    void update(event_system::EventSystem& event_system);
     void stop() override;
 
     void replaceCommand(const RobotIdentifier& robot, RobotCommand command);
@@ -79,31 +57,27 @@ class RobotInterface : public BaguetteModule {
     void updateKickCommand(const RobotIdentifier& robot, KickCommand command);
     void clearKickCommand(const RobotIdentifier& robot);
 
-    void send(std::vector<RobotCommand> commands);
-
     void setConnectionType(const RobotConnection mode);
 
     [[nodiscard]] RobotConnection getConnectionType() const { return this->connection_type; }
 
    private:
-    void processFeedback(RobotFeedbackWrapper& feedback_wrapper);
+    void processFeedback(RobotFeedbackWrapper& feedback_wrapper, event_system::EventSystem& event_system);
+
+    simulation_interface::SimulationInterface& interface;
 
     std::unique_ptr<PacketBuilder> prepareSending();
 
     logger::Logger logger{"robot_interface"};
-    RobotConnection connection_type{RobotConnection::DISABLED};
-    CallbackList<std::pair<RobotIdentifier, RobotFeedback>> robot_feedback_callbacks;
-    CallbackList<std::pair<uint32_t, RobotCommand>> robot_command_callbacks;
+    std::atomic<RobotConnection> connection_type{RobotConnection::DISABLED};
 
     std::unordered_map<RobotIdentifier, std::pair<time::TimePoint, RobotCommand>> active_robots;
 
     std::mutex feedback_mutex;
     std::unordered_map<RobotIdentifier, time::LoopStopwatch> feedback_counters;
 
-    time::Rate rate{100.0, "RobotInterface"};
     time::Duration packet_repeat_duration{1.0};
     std::mutex send_mutex;
-    std::unique_ptr<SerialConnection> serial_connection;
     std::unique_ptr<NetworkConnection> network_connection;
     std::unique_ptr<SimulationConnection> simulation_connection;
 };

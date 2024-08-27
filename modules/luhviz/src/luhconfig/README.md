@@ -1,0 +1,5 @@
+# Config
+The config comes in handy if you need to change some parameters on the fly without the need to recompile and restart the whole software. For this it offers this handy window which internally uses the config provider module to write and read config parameters.
+
+## Config data polling
+Because luhviz runs usually on 60Hz there would be an unnecesary overhead when going through all config params and and update all of them every frame. Therefore a custom **ConfigParam** class is created which tracks changes through this ConfigWindow and is called less often. As a consequence only changed values are applied to the config provider. Also if the value is tracked as "changed", it is possible to reset the value with an extra button to the original value from the config provider before. With call on save button, the values changed in the config provider are updated and saved permanently (also after restart of software). If the values are only changed without a save, they will apply for the current running instance of the software, but will not be saved permanently in the config provider.

@@ -4,8 +4,8 @@
 docker/ @se7kn8
 docs/ @se7kn8 @fabrice_zeug_luh
 
-start_sim.sh @fabrice_zeug_luh
-start_sim.bat @fabrice_zeug_luh
+start_sim.sh @se7kn8
+start_sim.bat @se7kn8
 
 .gitignore @luhbots
 
@@ -16,17 +16,17 @@ tests/baguette/ @se7kn8
 modules/config_provider/ @DerFuchs123
 tests/config_provider/ @DerFuchs123
 
-modules/experiment_logger/ @fabrice_zeug_luh
-tests/experiment_logger/ @fabrice_zeug_luh
+modules/game_data_provider/ @DerFuchs123
+tests/game_data_provider/ @DerFuchs123
 
-modules/game_data_provider/ @se7kn8 @fabrice_zeug_luh @DerFuchs123
-tests/game_data_provider/ @se7kn8 @fabrice_zeug_luh @DerFuchs123
+modules/local_planner/ @Malte.Sp @fabrice_zeug_luh
+tests/local_planner/ @Malte.Sp @fabrice_zeug_luh
 
-modules/local_planner/ @fabrice_zeug_luh
-tests/local_planner/ @fabrice_zeug_luh
+modules/local_planner_components/ @Malte.Sp @fabrice_zeug_luh
+tests/local_planner_components/ @Malte.Sp @fabrice_zeug_luh
 
-modules/local_planner_components/ @fabrice_zeug_luh
-tests/local_planner_components/ @fabrice_zeug_luh
+modules/robot_control/ @Malte.Sp @fabrice_zeug_luh
+tests/robot_control/ @Malte.Sp @fabrice_zeug_luh
 
 modules/logger/ @se7kn8
 tests/logger/ @se7kn8
@@ -46,34 +46,34 @@ modules/precompiled_headers/ @se7kn8
 modules/robot_interface/ @se7kn8
 tests/robot_interface/ @se7kn8
 
-modules/scenario/ @fabrice_zeug_luh @Malte.Sp @Steff3n
-tests/scenario/ @fabrice_zeug_luh @Malte.Sp @Steff3n
+modules/scenario/ @Steff3n @se7kn8 @Malte.Sp @fabrice_zeug_luh
+tests/scenario/ @Steff3n @se7kn8 @Malte.Sp @fabrice_zeug_luh
 
 
 modules/simulation_interface/ @se7kn8
 tests/simulation_interface/ @se7kn8
 
-modules/skills/ @fabrice_zeug_luh @Larissa99sky @westermax @Malte.Sp @Steff3n
-tests/skills/ @fabrice_zeug_luh @Larissa99sky @westermax @Malte.Sp @Steff3n
-modules/python_bindings/src/bindings/skills.cpp @se7kn8 @fabrice_zeug_luh @Larissa99sky @westermax @LeKo311 @Malte.Sp @Steff3n
+modules/skills/ @Steff3n @Malte.Sp @fabrice_zeug_luh
+tests/skills/ @Steff3n @Malte.Sp @fabrice_zeug_luh
+modules/python_bindings/src/bindings/skills.cpp @se7kn8 @Steff3n  @Malte.Sp @fabrice_zeug_luh
 
 modules/ssl_interface/ @se7kn8
 tests/ssl_interface/ @se7kn8
 
-modules/time/ @fabrice_zeug_luh
-tests/time/ @fabrice_zeug_luh
+modules/time/ @se7kn8 @fabrice_zeug_luh
+tests/time/ @se7kn8 @fabrice_zeug_luh
 
-modules/transform/ @fabrice_zeug_luh
-tests/transform/ @fabrice_zeug_luh
+modules/transform/ @se7kn8 @fabrice_zeug_luh
+tests/transform/ @se7kn8 @fabrice_zeug_luh
 
 # tests
 tests/CMakeLists.txt @luhbots
 
-tests_python/ @fabrice_zeug_luh @se7kn8
+tests_python/ @Steff3n @se7kn8
 
 # configs
 extern/cmake_rc/configs/ @luhbots
 modules/config_provider/include/config/ @luhbots
-modules/config_provider/include/config/skills_config.hpp @Larissa99sky @fabrice_zeug_luh @Steff3n @Malte.Sp
-modules/config_provider/include/config/local_planner_components_config.hpp @fabrice_zeug_luh
-extern/cmake_rc/configs/local_planner_components.toml @fabrice_zeug_luh
+modules/config_provider/include/config/skills_config.hpp @Steff3n @Malte.Sp @fabrice_zeug_luh
+modules/config_provider/include/config/local_planner_components_config.hpp @Malte.Sp @fabrice_zeug_luh
+extern/cmake_rc/configs/local_planner_components.toml @Malte.Sp @fabrice_zeug_luh

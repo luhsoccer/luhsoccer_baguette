@@ -204,8 +204,10 @@ std::vector<glm::vec3> Marker2DImpl::calculateArrow(SizeVec2 size) {
 }
 
 std::vector<glm::vec3> Marker2DImpl::calculateLineStrip(const std::vector<glm::vec3>& points, bool closed_path) {
-    if (this->points.empty()) return {};
-
+    if (this->points.size() < 2) {
+        LOGGER.error("LineStrip2D needs at least 2 points");
+        return {};
+    }
     std::vector<glm::vec3> vertices;
 
     // ensure that there are enough colors
@@ -276,7 +278,7 @@ std::vector<glm::vec3> Marker2DImpl::calculateCustomStrip(const std::vector<glm:
                                                           SizeVec2 size = {DEFAULT_SIZE},
                                                           float circle_radius = DEFAULT_SIZE) {
     if (type != Type2D::ARROW2D && type != Type2D::CIRCLE2D && type != Type2D::RECT2D) {
-        LOG_DEBUG(LOGGER, "this type of marker is not supported for CustomStrip: {}", static_cast<int>(type));
+        LOGGER.debug("this type of marker is not supported for CustomStrip: {}", static_cast<int>(type));
         return {};
     }
 
@@ -315,7 +317,7 @@ std::vector<glm::vec3> Marker2DImpl::calculateCustomStrip(const std::vector<glm:
                 }
                 break;
             default:
-                LOG_DEBUG(LOGGER, "this type of marker is not supported for CustomStrip: {}", static_cast<int>(type));
+                LOGGER.debug("this type of marker is not supported for CustomStrip: {}", static_cast<int>(type));
                 break;
         }
         ++i;
@@ -438,8 +440,8 @@ void Marker2DImpl::recalculateVertices() {
             this->vertices = calculateCircularHeatmap(this->radius);
             break;
         default:
-            LOG_WARNING(LOGGER, "MarkerType {} from namespace {} is no valid 2DMarker Type",
-                        static_cast<int>(this->type), this->ns);
+            LOGGER.warning("MarkerType {} from namespace {} is no valid 2DMarker Type", static_cast<int>(this->type),
+                           this->ns);
     }
 }
 

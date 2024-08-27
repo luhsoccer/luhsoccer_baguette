@@ -4,71 +4,40 @@
 #include "config_provider/config_base.hpp"
 
 namespace luhsoccer::config_provider {
-
-// Create Struct which extends the _Config struct_
-// Give the constructor of the Config struct the name of the .toml file (also include the .toml extension)
 struct BallFilterConfig : public Config {
-    BallFilterConfig() : Config("ball_filter.toml") {}
+    BallFilterConfig() : Config("ball_filter.toml", datatypes::ConfigType::SHARED) {}
 
-    // Create a Parameter (here it is a Boolean Parameter) using the _createBoolParam_ method
-    // Arguments are:
-    //      1. The _toml_key_: This key has to be unique for every parameter in this Config
-    //      2. The _description_: A description for this parameter
-    //      3. The group this parameter will be stored in (put an empty string for the global group)
-    //      4. The default value of this parameter (used when no value was found in the config)
-    //      (5 & 6. For Int & Double Parameters (optional): The min & max value)
-    //      7. (optional): Whether the variable should be editable at runtime (defaults to true)
-    DoubleParam speed_filter_max_speed = createDoubleParam(
-        "max_ball_speed", "The max. valid speed for a ball using the ball speed filter. (m/s)", "speed_filter", 7.0);
-    BoolParam use_moving_average_filter = createBoolParam(
-        "use_moving_average_filter", "Whether to use the moving average filter", "moving_average_filter", false);
-    BoolParam use_speed_filter =
-        createBoolParam("use_speed_filter", "Whether to use the speed filter", "speed_filter", true);
-    IntParam moving_average_filter_size = createIntParam(
-        "moving_average_filter_size", "The size of the moving average filter", "moving_average_filter", 20, 1, 1000);
-    DoubleParam moving_average_filter_forgetting_factor =
-        createDoubleParam("forgetting_factor", "The forgetting factor of the moving average filter",
-                          "moving_average_filter", 0.5, 0.0, 1.0);
-    DoubleParam camera_wait_time =
-        createDoubleParam("camera_wait_time", "The time to wait for a camera to be available", "filter", 1);
-    DoubleParam enemy_robot_dribbler_vision_delay =
-        createDoubleParam("enemy_robot_dribbler_vision_delay",
-                          "The time we allow the ball not to be seen in the vision", "enemy_vision_filter", 1);
-    DoubleParam enemy_dribbler_angle = createDoubleParam(
-        "enemy_dribbler_angle",
-        "The angle in degrees between the direction of the enemy and the ball, which is considered as inside "
-        "the dribbler of the enemy",
-        "enemy_vision_filter", 30, 0.0, 360.0);
-    DoubleParam enemy_dribbler_distance =
-        createDoubleParam("enemy_dribbler_distance",
-                          "The distance between the middle of the enemy robot and the ball, which is "
-                          "considered as inside the dribbler of the enemy",
-                          "enemy_vision_filter", 0.12, 0.0, 10.0);
-    DoubleParam ally_dribbler_angle = createDoubleParam(
-        "ally_dribbler_angle",
-        "The angle in degrees between the direction of the ally and the ball, which is considered as inside "
-        "the dribbler of the ally",
-        "ally_vision_filter", 30, 0.0, 360.0);
-    DoubleParam ally_dribbler_distance =
-        createDoubleParam("ally_dribbler_distance",
-                          "The distance between the middle of the ally robot and the ball, which is "
-                          "considered as inside the dribbler of the ally",
-                          "ally_vision_filter", 0.075, 0.0, 10.0);
-    DoubleParam ball_velocity_threshold = createDoubleParam(
-        "ball_velocity_threshold", "The velocity threshold for the ball to be considered as moving", "filter", 0.15);
-    DoubleParam ally_robot_dribbler_feedback_threshold = createDoubleParam(
-        "ally_robot_dribbler_feedback_threshold",
-        "Threshold after which the ally dribbler feedback starts to rely on vision after robot feedback cutoff",
-        "ally_vision_filter", 0.15);
+    DoubleParam light_barrier_debounce_time = createDoubleParam(
+        "light_barrier_debounce_time", "Time in seconds to debounce the light barrier (requires restart)",
+        "light_barrier", 0.1, 0.0);
 
-    DoubleParam light_barrier_low_pass_time = createDoubleParam(
-        "light_barrier_low_pass_time",
-        "Duration in s for which the ball is still considered in dribbler, after light barrier is false.",
-        "ally_vision_filter", 0.1);
+    IntParam velocity_average_window_size =
+        createIntParam("velocity_average_window_size", "Size of the window for the velocity average (requires restart)",
+                       "velocity", 10, 1, 200);
 
-    BoolParam ignore_ally_dribbler_feedback =
-        createBoolParam("ignore_ally_dribbler_feedback",
-                        "Whether to ignore the dribbler feedback from the ally robot and rely only on vision",
-                        "ally_vision_filter", false);
+    DoubleParam velocity_threshold =
+        createDoubleParam("velocity_threshold", "Threshold for the velocity to be considered as moving", "velocity",
+                          6.5 * 1.2, 0.0, 6.5 * 3.0);
+
+    DoubleParam light_barrier_velocity_threshold =
+        createDoubleParam("light_barrier_velocity_threshold",
+                          "Max velocity between the possible ball path of to light barriers between two robots",
+                          "light_barrier", 6.5 * 1.4, 0.0, 6.5 * 3.0);
+
+    DoubleParam max_timeout_time =
+        createDoubleParam("max_timeout_time", "Max blackout time after a robot feedback will be discarded",
+                          "light_barrier", 2.0, 0.0, 10.0);
+
+    DoubleParam dribbler_width =
+        createDoubleParam("dribbler_width", "Width of the dribbler", "vision_light_barrier_simulation", 0.1, 0.0);
+
+    DoubleParam x_margin =
+        createDoubleParam("x_margin", "Margin in x direction", "vision_light_barrier_simulation", 0.1, 0.0);
+    DoubleParam behind_robot_margin = createDoubleParam("behind_robot_margin", "Margin behind the robot",
+                                                        "vision_light_barrier_simulation", 0.05, 0.0);
+    DoubleParam y_debounce_margin = createDoubleParam("y_debounce_margin", "Margin in y direction for debounce",
+                                                      "vision_light_barrier_simulation", 0.015, 0.0);
+    DoubleParam x_debounce_margin = createDoubleParam("x_debounce_margin", "Margin in x direction for debounce",
+                                                      "vision_light_barrier_simulation", 0.05, 0.0);
 };
 }  // namespace luhsoccer::config_provider

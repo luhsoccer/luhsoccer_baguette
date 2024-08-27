@@ -1,39 +1,55 @@
 #pragma once
 
 #include <vector>
-#include <variant>
-#include <optional>
-#include <climits>
 #include <logger/logger.hpp>
-#include "ssl_interface/ssl_interface.hpp"
+
+namespace google::protobuf {
+class Arena;
+}
 
 namespace luhsoccer::ssl_interface {
 
+enum class LogFileState { NOT_LOADED, PARSING, RUNNING };
+
+struct LogFileControlHandle {
+    std::atomic_bool stop{false};
+    std::atomic_size_t current_frame{0};
+    std::atomic_size_t max_frames{0};
+    std::atomic_int replay_factor{1};
+    std::atomic_size_t preload_paths{0};
+    std::atomic<LogFileState> state{LogFileState::NOT_LOADED};
+};
+
+class SSLInterface;
+
+struct LogPacket;
+
 class LogFile {
    public:
-    LogFile(std::string file);
-
-    void replayAtMaxSpeed(SSLInterface& interface);
+    explicit LogFile(std::string file);
+    ~LogFile();
+    LogFile(const LogFile& other);
+    LogFile(LogFile&& other) noexcept;
+    LogFile& operator=(const LogFile& other);
+    LogFile& operator=(LogFile&& other) noexcept;
 
     void load();
 
-    void seekBy(int offset);
+    void replay(SSLInterface& interface, LogFileControlHandle& control_handle);
+
+    [[nodiscard]] size_t size() const;
+
+   private:
+    void replayImpl(SSLInterface& interface, LogFileControlHandle& control_handle);
+
+    template <typename P, typename M>
+    void addPacket(const char* message, int size, std::int64_t timestamp, M converter, google::protobuf::Arena& arena);
 
    private:
     std::string file;
-    template <typename P, typename M>
-    void addPacket(const char* message, int size, std::function<M(P)> converter) {
-        P packet;
-        if (!packet.ParseFromArray(message, size)) {
-            LOG_WARNING(logger, "Error while try to parse packet");
-        } else {
-            packets.emplace_back(converter(packet));
-        }
-    }
     constexpr static int32_t SUPPORTED_FILE_VERSION = 1;
-    std::vector<std::variant<SSLWrapperData, SSLGameControllerData>> packets;
-    size_t current_pos{0};
-    logger::Logger logger{"log_file", logger::LogColor::GREEN};
+    std::vector<LogPacket> packets;
+    logger::Logger logger{"log_file"};
 };
 
 }  // namespace luhsoccer::ssl_interface

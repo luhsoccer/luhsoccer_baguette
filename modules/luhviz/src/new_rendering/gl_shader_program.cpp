@@ -3,7 +3,7 @@
 
 namespace luhsoccer::luhviz {
 
-void GLShaderProgram::create(const std::string &vertex_shader_path, const std::string &fragment_shader_path) {
+void GLShaderProgram::create(const std::string& vertex_shader_path, const std::string& fragment_shader_path) {
     // error logging
     GLint result = GL_FALSE;
     int info_log_length = 0;
@@ -17,7 +17,7 @@ void GLShaderProgram::create(const std::string &vertex_shader_path, const std::s
     fragment_shader.create(fragment_shader_path, false);
 
     // Link the program
-    LOG_DEBUG(logger, "Linking program");
+    logger.debug("Linking program");
     glAttachShader(this->id, vertex_shader.getId());
     glAttachShader(this->id, fragment_shader.getId());
     glLinkProgram(this->id);
@@ -28,7 +28,7 @@ void GLShaderProgram::create(const std::string &vertex_shader_path, const std::s
     if (info_log_length > 0) {
         std::vector<char> program_error_message(info_log_length + 1);
         glGetProgramInfoLog(this->id, info_log_length, nullptr, &program_error_message[0]);
-        LOG_ERROR(logger, "{}", &program_error_message[0]);
+        logger.error("{}", &program_error_message[0]);
     }
 
     // detach shaders

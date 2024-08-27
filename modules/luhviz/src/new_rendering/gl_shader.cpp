@@ -19,10 +19,10 @@ void GLShader::create(const std::string& shader_path, bool is_vertex_shader) {
     // Compile Shader
     if (is_vertex_shader) {
         this->id = glCreateShader(GL_VERTEX_SHADER);
-        LOG_DEBUG(logger, "Compiling vertex shader:  {}", shader_path);
+        logger.debug("Compiling vertex shader:  {}", shader_path);
     } else {
         this->id = glCreateShader(GL_FRAGMENT_SHADER);
-        LOG_DEBUG(logger, "Compiling fragment shader:  {}", shader_path);
+        logger.debug("Compiling fragment shader:  {}", shader_path);
     }
 
     char const* source_pointer = shader_code.c_str();
@@ -35,7 +35,7 @@ void GLShader::create(const std::string& shader_path, bool is_vertex_shader) {
     if (info_log_length > 0) {
         std::vector<char> shader_error_message(info_log_length + 1);
         glGetShaderInfoLog(this->id, info_log_length, nullptr, &shader_error_message[0]);
-        LOG_ERROR(logger, "{}", &shader_error_message[0]);
+        logger.error("{}", &shader_error_message[0]);
     }
 
     this->created = true;

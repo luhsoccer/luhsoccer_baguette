@@ -19,6 +19,7 @@ class Fonts {
     constexpr static int FONT_BAGUETTE_MODE = 5;
     constexpr static int FONT_XL = 6;
     constexpr static int FONT_XXL = 7;
+    constexpr static int FONT_MEDIUM = 8;
 
     /**
      * @brief loads all fonts at startup
@@ -41,6 +42,9 @@ class Fonts {
 
         const float size_xxl = 40.0f;
         font_xxl = loadFont(size_xxl, io);
+
+        const float size_medium = 13.0f;
+        font_medium = loadFont(size_medium, io);
 
         // =============== Load fonts with special characters ===============
         ImFontGlyphRangesBuilder builder;
@@ -85,6 +89,8 @@ class Fonts {
                 return font_xl;
             case FONT_XXL:
                 return font_xxl;
+            case FONT_MEDIUM:
+                return font_medium;
             case FONT_DEBUGGER_MAIN:
                 return font_debugger_main;
             case FONT_DEBUGGER_MONO:
@@ -106,6 +112,7 @@ class Fonts {
     ImFont* font_baguette_mode;
     ImFont* font_xl;
     ImFont* font_xxl;
+    ImFont* font_medium;
 
     ImFont* loadSpecialFont(float pixel_size, const ImGuiIO& io, const std::string& font_file_name,
                             ImVector<ImWchar>& ranges) {

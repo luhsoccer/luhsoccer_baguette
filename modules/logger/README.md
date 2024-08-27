@@ -11,7 +11,7 @@ Usage example:
 auto logger = luhsooccer::logger::Logger("your_module_name");
 
 // Log a debug event using a formatted message
-LOG_DEBUG(logger, "Some messages that prints a number: {}", 10);
+logger.debug("Some messages that prints a number: {}", 10);
 
 
 // Log an error

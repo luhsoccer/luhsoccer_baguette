@@ -1,1 +1,0 @@
-#include "local_planner/avoidance_manager_unit.hpp"

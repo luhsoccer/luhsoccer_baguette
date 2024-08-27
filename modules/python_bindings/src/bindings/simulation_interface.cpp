@@ -1,23 +1,28 @@
 #include "bindings.hpp"
+#include "config/game_config.hpp"
 
 namespace luhsoccer::python {
 
 using namespace simulation_interface;
 
 template <>
-void bindModule(py::module_& baguette_module, py::class_<SimulationInterface>& instance) {
+void bindModule(nb::module_& baguette_module, nb::class_<SimulationInterface>& instance) {
     loadEnumBindings<SimulationConnectorType>(baguette_module, "SimulationConnectorType");
     instance.def("getConnector", &SimulationInterface::getConnector);
     instance.def("switchConnector", &SimulationInterface::switchConnector);
-    instance.def("teleportBall", [](SimulationInterface& self, const Eigen::Vector3d& position) {
-        // Wrapper since Affine2d is currently not supported in python
-        Eigen::Affine2d affine = Eigen::Translation2d(position.x(), position.y()) * Eigen::Rotation2Dd(0.0);
-        if (config_provider::ConfigProvider::getConfigStore().game_config.is_flipped) {
-            affine.translation().x() *= -1.0;
-            affine.translation().y() *= -1.0;
-        }
-        self.teleportBall(affine);
-    });
+    instance.def(
+        "teleportBall",
+        [](SimulationInterface& self, const Eigen::Vector3d& position, const Eigen::Vector3d& velocity) {
+            // Wrapper since Affine2d is currently not supported in python
+            Eigen::Affine2d affine = Eigen::Translation2d(position.x(), position.y()) * Eigen::Rotation2Dd(0.0);
+            if (config_provider::ConfigProvider::getConfigStore().game_config.is_flipped) {
+                affine.translation().x() *= -1.0;
+                affine.translation().y() *= -1.0;
+            }
+            self.teleportBall(affine, velocity);
+        },
+        nb::arg("position"), nb::arg("velocity") = Eigen::Vector3d{0.0, 0.0, 0.0});
+    instance.def("kickBall", &SimulationInterface::kickBall, nb::arg("velocity"));
     instance.def(
         "teleportRobot",
         [](SimulationInterface& self, const Eigen::Vector3d& position_and_rotation, const RobotIdentifier& which,
@@ -46,14 +51,8 @@ void bindModule(py::module_& baguette_module, py::class_<SimulationInterface>& i
 
             self.teleportRobot(IDProvider::getNumericID(which), color, affine, velocity, present);
         },
-        py::arg(), py::arg(), py::arg("velocity") = Eigen::Vector3d{0.0, 0.0, 0.0}, py::arg("present") = true);
-}
-
-template <>
-void bindEnum(py::enum_<SimulationConnectorType>& instance) {
-    instance.value("ErForceSimulation", SimulationConnectorType::ERFORCE_SIMULATION);
-    instance.value("TestSimulation", SimulationConnectorType::TEST_SIMULATION);
-    instance.value("NoConnection", SimulationConnectorType::NONE);
+        nb::arg("position_and_rotation"), nb::arg("robot_id"), nb::arg("velocity") = Eigen::Vector3d{0.0, 0.0, 0.0},
+        nb::arg("present") = true);
 }
 
 }  // namespace luhsoccer::python

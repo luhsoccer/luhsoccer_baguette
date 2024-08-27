@@ -37,6 +37,8 @@ SSLArcType parseArcType(const std::string& name) {
     return SSLArcType::UNKNOWN;
 }
 
+SSLStage parseStage(const Referee_Stage& stage) { return static_cast<SSLStage>(stage); }
+
 SSLCommandType parseCommandType(const Referee_Command& cmd) {
     switch (cmd) {
         // Currently treat ball placement as stop
@@ -58,6 +60,8 @@ SSLVisionData parseVisionData(const ssl_vision::SSL_DetectionFrame& frame) {
 
     using SSLRobotList = decltype(frame.robots_blue());
     // Parse both robots
+    data.blue_robots.reserve(frame.robots_blue_size());
+    data.yellow_robots.reserve(frame.robots_yellow_size());
     doForBothColors<SSLRobotList, std::vector<SSLRobotInfo>>(
         frame.robots_blue(), frame.robots_yellow(), data.blue_robots, data.yellow_robots,
         [&](SSLRobotList& robots, std::vector<SSLRobotInfo>& output) {
@@ -71,6 +75,7 @@ SSLVisionData parseVisionData(const ssl_vision::SSL_DetectionFrame& frame) {
         });
 
     // Parse all balls that are visible
+    data.balls.reserve(frame.balls_size());
     for (const auto& ball : frame.balls()) {
         data.balls.emplace_back(SSLBallInfo{{ball.x() * SCALE_FACTOR, ball.y() * SCALE_FACTOR, ball.z() * SCALE_FACTOR},
                                             ball.confidence(),
@@ -193,6 +198,7 @@ SSLFieldData parseFieldData(const ssl_vision::SSL_GeometryFieldSize& field) {
     }
 
     // Parse the lines
+    data.lines.reserve(field.field_lines_size());
     for (const auto& line : field.field_lines()) {
         SSLFieldLine parsed_line = SSLFieldLine{line.name(),
                                                 parseLineType(line.name()),
@@ -235,14 +241,12 @@ SSLFieldData parseFieldData(const ssl_vision::SSL_GeometryFieldSize& field) {
                 break;
                 // hardcoded Points for the goals - TODO
             case SSLLineType::LEFT_GOAL_LINE:
-                // NOLINTBEGIN(cppcoreguidelines-avoid-magic-numbers)
-                data.goal_left_top = {parsed_line.start_point.x(), 0.5};
-                data.goal_left_bottom = {parsed_line.end_point.x(), -0.5};
+                data.goal_left_top = {parsed_line.start_point.x(), data.goal_width / 2};
+                data.goal_left_bottom = {parsed_line.end_point.x(), -data.goal_width / 2};
                 break;
             case SSLLineType::RIGHT_GOAL_LINE:
-                data.goal_right_top = {parsed_line.start_point.x(), 0.5};
-                data.goal_right_bottom = {parsed_line.end_point.x(), -0.5};
-                // NOLINTEND(cppcoreguidelines-avoid-magic-numbers)
+                data.goal_right_top = {parsed_line.start_point.x(), data.goal_width / 2};
+                data.goal_right_bottom = {parsed_line.end_point.x(), -data.goal_width / 2};
             default:
                 break;
         }
@@ -330,6 +334,8 @@ SSLGameControllerData parseRefereeData(const Referee& packet) {
     if (packet.has_next_command()) {
         data.next_command = std::make_optional(parseCommandType(packet.next_command()));
     }
+
+    data.stage = parseStage(packet.stage());
 
     if (packet.has_designated_position()) {
         data.designated_position = {packet.designated_position().x() * SCALE_FACTOR,

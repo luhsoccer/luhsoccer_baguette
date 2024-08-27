@@ -26,7 +26,11 @@ target_include_directories(
 
 find_package(Eigen3 REQUIRED)
 find_package(asio REQUIRED)
+find_package(ZLIB REQUIRED)
+find_package(Boost COMPONENTS iostreams REQUIRED)
 
+# Disable unity builds for protobuf files since they are generated and violate ODRs
+set_target_properties(luhsoccer_baguette_protobuf PROPERTIES UNITY_BUILD FALSE)
 
 target_link_libraries(${MODULE_NAME}
     PRIVATE
@@ -34,7 +38,11 @@ target_link_libraries(${MODULE_NAME}
     config_provider
     luhsoccer_baguette_protobuf
     simulation_interface
+    marker_service
+    Boost::boost
+    Boost::iostreams
     PUBLIC
+    ZLIB::ZLIB
     logger
     Eigen3::Eigen
     time

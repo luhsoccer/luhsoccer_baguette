@@ -5,7 +5,7 @@ namespace luhsoccer::python {
 using namespace marker;
 
 template <>
-void bindModule(py::module_& baguette_module, py::class_<MarkerService>& instance) {
+void bindModule(nb::module_& baguette_module, nb::class_<MarkerService>& instance) {
     loadEnumBindings<MType>(baguette_module, "MarkerType");
     loadClassBindings<Color>(baguette_module, "Color");
     loadClassBindings<ScaleVec3>(baguette_module, "ScaleVec3");
@@ -13,7 +13,8 @@ void bindModule(py::module_& baguette_module, py::class_<MarkerService>& instanc
     loadClassBindings<Point>(baguette_module, "Point");
     loadClassBindings<Marker>(baguette_module, "Marker");
     loadDerivedClassBindings<Marker2D, Marker>(baguette_module, "Marker2D");
-    loadDerivedClassBindings<GoalBorder, Marker>(baguette_module, "GoalBorderMarker");
+    loadDerivedClassBindings<GoalBorderDivA, Marker>(baguette_module, "GoalBorderDivAMarker");
+    loadDerivedClassBindings<GoalBorderDivB, Marker>(baguette_module, "GoalBorderDivBMarker");
     loadDerivedClassBindings<Robot, Marker>(baguette_module, "RobotMarker");
     loadDerivedClassBindings<Ball, Marker>(baguette_module, "BallMarker");
     loadDerivedClassBindings<Cone, Marker>(baguette_module, "ConeMarker");
@@ -34,39 +35,15 @@ void bindModule(py::module_& baguette_module, py::class_<MarkerService>& instanc
     loadDerivedClassBindings<Info, Marker>(baguette_module, "InfoMarker");
     loadDerivedClassBindings<RobotInfo, Marker>(baguette_module, "RobotInfoMarker");
 
-    instance.def("displayMarker", py::overload_cast<Marker>(&MarkerService::displayMarker));
-    instance.def("displayRobotInfoMarker", py::overload_cast<RobotInfo>(&MarkerService::displayMarker));
-    instance.def("displayInfoMarker", py::overload_cast<Info>(&MarkerService::displayMarker));
+    instance.def("displayMarker", nb::overload_cast<Marker>(&MarkerService::displayMarker));
+    instance.def("displayRobotInfoMarker", nb::overload_cast<RobotInfo>(&MarkerService::displayMarker));
+    instance.def("displayInfoMarker", nb::overload_cast<Info>(&MarkerService::displayMarker));
     instance.def("deleteMarker", &MarkerService::deleteMarker);
 }
 
 template <>
-void bindEnum(py::enum_<MType>& instance) {
-    instance.value("GoalBorder", MType::GOAL_BORDERS);
-    instance.value("Robot", MType::ROBOT);
-    instance.value("Ball", MType::BALL);
-    instance.value("Frame", MType::FRAME);
-    instance.value("Cone", MType::CONE);
-    instance.value("Cube", MType::CUBE);
-    instance.value("Cylinder", MType::CYLINDER);
-    instance.value("Sphere", MType::SPHERE);
-    instance.value("Torus", MType::TORUS);
-    instance.value("Arrow", MType::ARROW);
-    instance.value("Suzanne", MType::SUZANNE);
-    instance.value("Text", MType::TEXT);
-    instance.value("Line", MType::LINE);
-    instance.value("Rect", MType::RECT);
-    instance.value("Arrow2d", MType::ARROW_2D);
-    instance.value("Circle", MType::CIRCLE);
-    instance.value("LineStrip", MType::LINE_STRIP);
-    instance.value("CustomStrip", MType::CUSTOM_STRIP);
-    instance.value("HeatMap", MType::HEATMAP);
-    instance.value("CircleHeatmap", MType::CIRCULAR_HEATMAP);
-}
-
-template <>
-void bindClass(py::class_<Color>& instance) {
-    instance.def(py::init<double, double, double>());
+void bindClass(nb::class_<Color>& instance) {
+    instance.def(nb::init<double, double, double>());
     instance.def_static("red", &Color::RED);
     instance.def_static("green", &Color::GREEN);
     instance.def_static("blue", &Color::BLUE);
@@ -81,33 +58,33 @@ void bindClass(py::class_<Color>& instance) {
     instance.def_static("white", &Color::WHITE);
     instance.def_static("black", &Color::BLACK);
 
-    instance.def_static("random", py::overload_cast<unsigned int>(&Color::random));
-    instance.def_static("random", py::overload_cast<>(&Color::random));
+    instance.def_static("random", nb::overload_cast<unsigned int>(&Color::random));
+    instance.def_static("random", nb::overload_cast<>(&Color::random));
     instance.def_static("interpolate", &Color::interpolate);
     instance.def_static("interpolateGradient", &Color::interpolateGradient);
     instance.def_static("hsv2rgb", &Color::hsv2Rgb);
 }
 
 template <>
-void bindClass(py::class_<ScaleVec3>& instance) {
-    instance.def(py::init<double>());
-    instance.def(py::init<double, double, double>());
+void bindClass(nb::class_<ScaleVec3>& instance) {
+    instance.def(nb::init<double>());
+    instance.def(nb::init<double, double, double>());
 }
 
 template <>
-void bindClass(py::class_<SizeVec2>& instance) {
-    instance.def(py::init<double>());
-    instance.def(py::init<double, double>());
+void bindClass(nb::class_<SizeVec2>& instance) {
+    instance.def(nb::init<double>());
+    instance.def(nb::init<double, double>());
 }
 
 template <>
-void bindClass(py::class_<Point>& instance) {
-    instance.def(py::init<>());
-    instance.def(py::init<double, double, double>());
+void bindClass(nb::class_<Point>& instance) {
+    instance.def(nb::init<>());
+    instance.def(nb::init<double, double, double>());
 }
 
 template <>
-void bindClass(py::class_<Marker>& instance) {
+void bindClass(nb::class_<Marker>& instance) {
     instance.def("setNs", &Marker::setNs);
     instance.def("setId", &Marker::setId);
     instance.def("setColor", &Marker::setColor);
@@ -120,103 +97,108 @@ void bindClass(py::class_<Marker>& instance) {
 }
 
 template <>
-void bindDerivedClass(py::class_<Marker2D, Marker>& instance) {
+void bindDerivedClass(nb::class_<Marker2D, Marker>& instance) {
     instance.def("setThickness", &Marker2D::setThickness);
     instance.def("setColors", &Marker2D::setColors);
 }
 
 template <>
-void bindDerivedClass(py::class_<GoalBorder, Marker>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<GoalBorderDivA, Marker>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
 }
 
 template <>
-void bindDerivedClass(py::class_<Robot, Marker>& instance) {
-    instance.def(py::init<transform::Position, const RobotIdentifier&, std::string, size_t>());
+void bindDerivedClass(nb::class_<GoalBorderDivB, Marker>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
 }
 
 template <>
-void bindDerivedClass(py::class_<Ball, Marker>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<Robot, Marker>& instance) {
+    instance.def(nb::init<transform::Position, const RobotIdentifier&, std::string, size_t>());
 }
 
 template <>
-void bindDerivedClass(py::class_<Cone, Marker>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<Ball, Marker>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
 }
 
 template <>
-void bindDerivedClass(py::class_<Cube, Marker>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<Cone, Marker>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
 }
 
 template <>
-void bindDerivedClass(py::class_<Cylinder, Marker>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<Cube, Marker>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
 }
 
 template <>
-void bindDerivedClass(py::class_<Sphere, Marker>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<Cylinder, Marker>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
 }
 
 template <>
-void bindDerivedClass(py::class_<Torus, Marker>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<Sphere, Marker>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
 }
 
 template <>
-void bindDerivedClass(py::class_<Arrow, Marker>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<Torus, Marker>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
 }
 
 template <>
-void bindDerivedClass(py::class_<Suzanne, Marker>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<Arrow, Marker>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
 }
 
 template <>
-void bindDerivedClass(py::class_<Text, Marker>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t, std::string>());
+void bindDerivedClass(nb::class_<Suzanne, Marker>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
+}
+
+template <>
+void bindDerivedClass(nb::class_<Text, Marker>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t, std::string>());
     instance.def("setText", &Text::setText);
 }
 
 template <>
-void bindDerivedClass(py::class_<Circle, Marker2D>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<Circle, Marker2D>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
     instance.def("setRadius", &Circle::setRadius);
     instance.def("setFilled", &Circle::setFilled);
 }
 
 template <>
-void bindDerivedClass(py::class_<Rect, Marker2D>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<Rect, Marker2D>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
     instance.def("setSize", &Rect::setSize);
     instance.def("setFilled", &Rect::setFilled);
 }
 
 template <>
-void bindDerivedClass(py::class_<Line, Marker2D>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<Line, Marker2D>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
     instance.def("setLinePoints", &Line::setLinePoints);
 }
 
 template <>
-void bindDerivedClass(py::class_<Arrow2d, Marker2D>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<Arrow2d, Marker2D>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
     instance.def("setSize", &Arrow2d::setSize);
 }
 
 template <>
-void bindDerivedClass(py::class_<LineStrip, Marker2D>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<LineStrip, Marker2D>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
     instance.def("setPathClosed", &LineStrip::setPathClosed);
     instance.def("setPoints", &LineStrip::setPoints);
 }
 
 template <>
-void bindDerivedClass(py::class_<Heatmap, Marker2D>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<Heatmap, Marker2D>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
     instance.def("setHeatmapColors", &Heatmap::setHeatmapColors);
     instance.def("setHeatmapSize", &Heatmap::setHeatmapSize);
     instance.def("setHeatmapPoints", &Heatmap::setHeatmapPoints);
@@ -225,8 +207,8 @@ void bindDerivedClass(py::class_<Heatmap, Marker2D>& instance) {
 }
 
 template <>
-void bindDerivedClass(py::class_<CircularHeatmap, Marker2D>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<CircularHeatmap, Marker2D>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
     instance.def("setCircularHeatmapColors", &CircularHeatmap::setCircularHeatmapColors);
     instance.def("setRadius", &CircularHeatmap::setRadius);
     instance.def("setCircularHeatmapData", &CircularHeatmap::setCircularHeatmapData);
@@ -235,8 +217,8 @@ void bindDerivedClass(py::class_<CircularHeatmap, Marker2D>& instance) {
 }
 
 template <>
-void bindDerivedClass(py::class_<CustomStrip, Marker>& instance) {
-    instance.def(py::init<transform::Position, std::string, size_t>());
+void bindDerivedClass(nb::class_<CustomStrip, Marker>& instance) {
+    instance.def(nb::init<transform::Position, std::string, size_t>());
     instance.def("setMarkerStripType", &CustomStrip::setMarkerStripType);
     instance.def("setRotations", &CustomStrip::setRotations);
     instance.def("setPoints", &CustomStrip::setPoints);
@@ -244,24 +226,28 @@ void bindDerivedClass(py::class_<CustomStrip, Marker>& instance) {
 }
 
 template <>
-void bindDerivedClass(py::class_<Info, Marker>& instance) {
-    instance.def(py::init<std::string, size_t>());
+void bindDerivedClass(nb::class_<Info, Marker>& instance) {
+    instance.def(nb::init<std::string, size_t>());
     instance.def("getInfoText", &Info::getInfoText);
     instance.def("getInfoValue", &Info::getInfoValue);
-    instance.def("set", py::overload_cast<const std::string&, int>(&Info::set));
-    instance.def("set", py::overload_cast<const std::string&, double>(&Info::set));
-    instance.def("set", py::overload_cast<const std::string&, std::string&>(&Info::set));
-    instance.def("set", py::overload_cast<const std::string&, bool>(&Info::set));
+    instance.def("set", nb::overload_cast<const std::string&, int>(&Info::set));
+    instance.def("set", nb::overload_cast<const std::string&, double>(&Info::set));
+    instance.def("set", nb::overload_cast<const std::string&, std::string&>(&Info::set));
+    instance.def("set", nb::overload_cast<const std::string&, bool>(&Info::set));
 }
 
 template <>
-void bindDerivedClass(py::class_<RobotInfo, Marker>& instance) {
-    instance.def(py::init<RobotIdentifier>());
-    instance.def("addParam", py::overload_cast<std::string, std::string>(&RobotInfo::addParam));
-    instance.def("addParam", py::overload_cast<std::string, double>(&RobotInfo::addParam));
-    instance.def("addParam", py::overload_cast<std::string, bool>(&RobotInfo::addParam));
-    instance.def("addParam", py::overload_cast<std::string, int>(&RobotInfo::addParam));
-    instance.def("setStatus", &RobotInfo::setStatus);
+void bindDerivedClass(nb::class_<RobotInfo, Marker>& instance) {
+    instance.def(nb::init<RobotIdentifier>());
+    instance.def("addParam", nb::overload_cast<std::string, std::string>(&RobotInfo::addParam));
+    instance.def("addParam", nb::overload_cast<std::string, double>(&RobotInfo::addParam));
+    instance.def("addParam", nb::overload_cast<std::string, bool>(&RobotInfo::addParam));
+    instance.def("addParam", nb::overload_cast<std::string, int>(&RobotInfo::addParam));
+    instance.def("setBadge", [](RobotInfo& self, std::string key, std::string message, marker::Color color,
+                                marker::Color text_color) {
+        self.addBadge(std::move(key), {std::move(message), color, text_color});
+    });
+    // instance.def("setStatus", &RobotInfo::setStatus);
 }
 
 }  // namespace luhsoccer::python
