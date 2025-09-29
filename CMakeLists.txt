@@ -43,7 +43,7 @@ if(ENABLE_RELEASE_LTO)
     set(CMAKE_INTERPROCEDURAL_OPTIMIZATION_MINSIZEREL ON) # Enable LTO
 endif()
 
-set(MSVC_DEBUG_INFORMATION_FORMAT Embedded)
+set(CMAKE_MSVC_DEBUG_INFORMATION_FORMAT Embedded)
 
 # Add the modules to the project
 add_subdirectory(extern)
